@@ -1,18 +1,14 @@
 {
-    "name": "Core.Sorting",
-    "rootNamespace": "YoWorld",
-    "references": [
-        "GUID:af2cfdc4527f34cd4a9528be8e217b14"
-    ],
+    "name": "IsaacBG77.IsometricZoneSorting",
+    "rootNamespace": "IsometricZoneSorting",
+    "references": [],
     "includePlatforms": [],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
     "overrideReferences": false,
     "precompiledReferences": [],
     "autoReferenced": true,
-    "defineConstraints": [
-        "CLIENT_BUILD"
-    ],
+    "defineConstraints": [],
     "versionDefines": [],
     "noEngineReferences": false
 }

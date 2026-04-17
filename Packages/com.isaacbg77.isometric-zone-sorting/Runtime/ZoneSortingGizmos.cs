@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
-namespace YoWorld.Core.Sorting
+namespace IsometricZoneSorting
 {
     [RequireComponent(typeof(ZoneSortingService))]
     public class ZoneSortingGizmos : MonoBehaviour

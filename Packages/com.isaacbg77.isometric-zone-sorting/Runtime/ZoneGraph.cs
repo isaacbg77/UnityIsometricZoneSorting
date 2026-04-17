@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-namespace YoWorld.Core.Sorting
+namespace IsometricZoneSorting
 {
     /// <summary>
     /// Computes depth zones from a set of sorting lines and provides spatial queries.

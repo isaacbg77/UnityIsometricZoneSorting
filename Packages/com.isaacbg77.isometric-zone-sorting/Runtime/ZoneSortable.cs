@@ -1,8 +1,7 @@
 using UnityEngine;
 using UnityEngine.Rendering;
-using YoWorld.Core.Utilities;
 
-namespace YoWorld.Core.Sorting
+namespace IsometricZoneSorting
 {
     [RequireComponent(typeof(SortingGroup))]
     public class ZoneSortable : MonoBehaviour, IZoneSortable
@@ -15,7 +14,7 @@ namespace YoWorld.Core.Sorting
 
         private void Awake()
         {
-            _zoneSortingService = Find.InterfaceOfType<IZoneSortingService>();
+            _zoneSortingService = SceneUtils.FindInterfaceOfType<IZoneSortingService>();
             if (_zoneSortingService == null) Debug.LogError($"[{nameof(ZoneSortable)}]: {nameof(IZoneSortingService)} is null", this);
 
             _sortingGroup = GetComponent<SortingGroup>();

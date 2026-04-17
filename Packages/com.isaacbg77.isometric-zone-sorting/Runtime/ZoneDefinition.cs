@@ -1,4 +1,4 @@
-namespace YoWorld.Core.Sorting
+namespace IsometricZoneSorting
 {
     public readonly struct ZoneDefinition
     {

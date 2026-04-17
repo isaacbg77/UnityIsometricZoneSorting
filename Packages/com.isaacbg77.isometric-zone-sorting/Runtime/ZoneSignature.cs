@@ -1,6 +1,6 @@
 using System;
 
-namespace YoWorld.Core.Sorting
+namespace IsometricZoneSorting
 {
     /// <summary>
     /// Encodes which side of each sorting line a zone falls on.

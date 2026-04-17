@@ -1,7 +1,7 @@
 using UnityEngine;
 using UnityEngine.Rendering;
 
-namespace YoWorld.Core.Sorting
+namespace IsometricZoneSorting
 {
     public interface IZoneSortable
     {

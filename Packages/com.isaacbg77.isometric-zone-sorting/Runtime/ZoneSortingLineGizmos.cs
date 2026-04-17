@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace YoWorld.Core.Sorting
+namespace IsometricZoneSorting
 {
     [RequireComponent(typeof(ZoneSortingLine))]
     public class ZoneSortingLineGizmos : MonoBehaviour

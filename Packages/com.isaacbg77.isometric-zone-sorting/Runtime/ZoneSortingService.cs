@@ -1,9 +1,8 @@
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
-using YoWorld.Core.Utilities.LayerUtils;
 
-namespace YoWorld.Core.Sorting
+namespace IsometricZoneSorting
 {
     public class ZoneSortingService : MonoBehaviour, IZoneSortingService
     {

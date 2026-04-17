@@ -1,6 +1,6 @@
 using UnityEngine;
 
-namespace YoWorld.Core.Sorting
+namespace IsometricZoneSorting
 {
     public class SortingPoint : MonoBehaviour
     {

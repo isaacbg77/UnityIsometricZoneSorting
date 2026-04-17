@@ -1,0 +1,25 @@
+{
+  "name": "com.isaacbg77.isometric-zone-sorting",
+  "version": "0.1.0",
+  "displayName": "Isometric Zone Sorting",
+  "description": "A general-purpose depth sorting solution for 2D isometric Unity games. Author sorting lines to partition your scene into zones; objects tagged as sortable automatically receive the correct sortingOrder each frame based on their position.",
+  "unity": "6000.0",
+  "keywords": [
+    "2d",
+    "isometric",
+    "sorting",
+    "depth",
+    "rendering"
+  ],
+  "author": {
+    "name": "Isaac Bercovitz Green",
+    "url": "https://github.com/isaacbg77"
+  },
+  "samples": [
+    {
+      "displayName": "Demo Scene",
+      "description": "A scene with sorting lines, sortables, and gizmos showing how the zone graph assigns sorting orders.",
+      "path": "Samples~/Demo"
+    }
+  ]
+}
