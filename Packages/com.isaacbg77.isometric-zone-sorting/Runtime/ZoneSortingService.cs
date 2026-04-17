@@ -41,7 +41,7 @@ namespace IsometricZoneSorting
                 if (sortable.SortingGroup == null) continue;
 
                 sortable.SortingGroup.sortingLayerID = layerId;
-                sortable.SortingGroup.sortingOrder = _graph.GetSortingOrderInLayer(sortable.SortPosition);
+                sortable.SortingGroup.sortingOrder = _graph.GetSortingOrderInLayer(sortable.SortPosition) + sortable.SortOrderBias;
             }
         }
 

@@ -45,7 +45,7 @@ namespace IsometricZoneSorting
                 {
                     var worldPosition = _gridOrigin + new Vector2(column * _cellSize + _cellSize * 0.5f, row * _cellSize + _cellSize * 0.5f);
                     var sortingOrder = graph.GetSortingOrderInLayer(worldPosition);
-                    var colorIndex = sortingOrder % ZoneColors.Length;
+                    var colorIndex = (sortingOrder / ZoneGraph.ZoneOrderStride) % ZoneColors.Length;
 
                     Gizmos.color = ZoneColors[colorIndex];
                     Gizmos.DrawCube(worldPosition, new Vector3(_cellSize, _cellSize, 0f));

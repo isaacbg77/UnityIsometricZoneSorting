@@ -5,6 +5,18 @@ All notable changes to this package will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `IZoneSortable.SortOrderBias` — integer offset added on top of the zone's order, so sortables sitting on a zone boundary (walls, fences, doors) can render strictly between two zones and never tie with movers.
+- `ZoneGraph.ZoneOrderStride` — zone orders are now spaced by 10 (instead of 1) to leave room for bias slots.
+- `ZoneSortable` exposes a **Sort Order Bias** field in the inspector.
+
+### Changed
+
+- Zones are assigned sorting orders `0, 10, 20, …` instead of `0, 1, 2, …`. If your project reads `SortingOrderInLayer` directly, divide by `ZoneGraph.ZoneOrderStride` to recover the old value.
+
 ## [0.1.0] - 2026-04-17
 
 ### Added

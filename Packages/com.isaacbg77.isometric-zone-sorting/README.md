@@ -77,6 +77,17 @@ public class FootAnchoredSortable : MonoBehaviour, IZoneSortable
 }
 ```
 
+### Sortables on a boundary (walls, fences, doors)
+
+Anything that sits *on* a sorting line — walls, fences, railings — needs to render strictly between the two zones the line separates, so a mover in either zone never ties with it. To support this, zone orders are spaced by `ZoneGraph.ZoneOrderStride` (currently 10), and each `IZoneSortable` exposes a `SortOrderBias` added on top of its zone's order.
+
+The recipe for a wall:
+
+1. Place the wall's pivot (or its custom `SortPosition`) slightly behind its own line — a tiny offset along `-FrontNormal` — so it resolves into the zone just behind the line.
+2. Set **Sort Order Bias** to `1` on its `ZoneSortable`.
+
+That puts the wall at `backZoneOrder + 1`. Anything on the front side of the line is in a zone with order ≥ `backZoneOrder + 10`, so it renders above the wall. Anything on the back side is in the same zone as the wall (order = `backZoneOrder`), so it renders below. Biases must be in `[0, ZoneGraph.ZoneOrderStride)`; values ≥ the stride will collide with the next zone.
+
 ### Rebuilding zones
 
 The zone graph is a snapshot of the sorting lines present when it was last built. If lines are added, removed, or moved at runtime, call `RebuildZones()` on the service:
