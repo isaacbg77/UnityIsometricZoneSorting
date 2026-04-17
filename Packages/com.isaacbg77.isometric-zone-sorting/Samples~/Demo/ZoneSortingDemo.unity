@@ -148,8 +148,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1c9daa2e633ce46d9be98d7cb299f241, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _maxVerticalDistance: 5
-  _maxHorizontalDistance: 5
 --- !u!4 &84700701
 Transform:
   m_ObjectHideFlags: 0
@@ -194,8 +192,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1c9daa2e633ce46d9be98d7cb299f241, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _maxVerticalDistance: 5
-  _maxHorizontalDistance: 5
 --- !u!4 &500978557
 Transform:
   m_ObjectHideFlags: 0
@@ -240,8 +236,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1c9daa2e633ce46d9be98d7cb299f241, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _maxVerticalDistance: 5
-  _maxHorizontalDistance: 5
 --- !u!4 &535598854
 Transform:
   m_ObjectHideFlags: 0
@@ -628,8 +622,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1c9daa2e633ce46d9be98d7cb299f241, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _maxVerticalDistance: 5
-  _maxHorizontalDistance: 5
 --- !u!4 &832256425
 Transform:
   m_ObjectHideFlags: 0
@@ -674,8 +666,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1c9daa2e633ce46d9be98d7cb299f241, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _maxVerticalDistance: 5
-  _maxHorizontalDistance: 5
 --- !u!4 &858345485
 Transform:
   m_ObjectHideFlags: 0
@@ -1111,8 +1101,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1c9daa2e633ce46d9be98d7cb299f241, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _maxVerticalDistance: 5
-  _maxHorizontalDistance: 5
 --- !u!4 &1232626163
 Transform:
   m_ObjectHideFlags: 0
@@ -1285,8 +1273,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1c9daa2e633ce46d9be98d7cb299f241, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _maxVerticalDistance: 5
-  _maxHorizontalDistance: 5
 --- !u!4 &1471525848
 Transform:
   m_ObjectHideFlags: 0
@@ -1313,7 +1299,6 @@ GameObject:
   - component: {fileID: 1727247222}
   - component: {fileID: 1727247221}
   - component: {fileID: 1727247220}
-  - component: {fileID: 1727247223}
   m_Layer: 0
   m_Name: ZoneSortingManager
   m_TagString: Untagged
@@ -1349,6 +1334,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _dynamicSortingLayerName: Default
+  _rebuildZonesOnAwake: 1
 --- !u!4 &1727247222
 Transform:
   m_ObjectHideFlags: 0
@@ -1364,19 +1350,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1727247223
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1727247219}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 8ef5fe0e040e34b18939de38d36a5b9d, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::RebuildZonesOnAwake
-  _service: {fileID: 1727247221}
 --- !u!1 &1809046661
 GameObject:
   m_ObjectHideFlags: 0
@@ -1686,8 +1659,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 1c9daa2e633ce46d9be98d7cb299f241, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _maxVerticalDistance: 5
-  _maxHorizontalDistance: 5
 --- !u!4 &1969363571
 Transform:
   m_ObjectHideFlags: 0
