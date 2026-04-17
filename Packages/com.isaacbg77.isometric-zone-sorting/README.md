@@ -2,7 +2,7 @@
 
 A general-purpose depth sorting solution for 2D isometric Unity games.
 
-Drop **sorting lines** into your scene to hand-author which side of each line renders in front of the other. At runtime, any object tagged with `ZoneSortable` gets a correct integer `sortingOrder` every frame — no per-object tweaking, no "sort by Y" hacks, no fighting with `SortingGroup` priorities.
+Drop **sorting lines** into your scene to hand-author which side of each line renders in front of the other. At runtime, any object tagged with `DynamicZoneSortable` (for movers) or `BoundaryZoneSortable` (for walls and other things sitting on a line) gets a correct integer `sortingOrder` every frame — no per-object tweaking, no "sort by Y" hacks, no fighting with `SortingGroup` priorities.
 
 ## Install
 
@@ -25,7 +25,7 @@ Or add to `Packages/manifest.json`:
 - A **`ZoneSortingLine`** is a line segment (two `SortingPoint` endpoints) plus a `FrontNormal` indicating which side renders on top.
 - `N` lines partition the scene into up to `2^N` **zones**, one per front/back combination.
 - A **`ZoneGraph`** builds a directed acyclic graph from these zones (zones differing by one line have an edge: back → front) and runs Kahn's topological sort to assign each zone an integer depth.
-- A **`ZoneSortingService`** registers all `ZoneSortable` components in the scene. In `LateUpdate` it looks up each sortable's current zone and writes the resulting order into its `SortingGroup.sortingOrder`.
+- A **`ZoneSortingService`** registers every `IZoneSortable` in the scene. In `LateUpdate` it looks up each sortable's current zone and writes the resulting order into its `SortingGroup.sortingOrder`.
 
 Cycles (contradictory line orientations) are detected and the affected zones fall back to a trailing order with a warning.
 
@@ -39,6 +39,7 @@ Create an empty GameObject in the scene and add a `ZoneSortingService` component
 
 - **Dynamic Sorting Layer Name** — pick a sorting layer from the dropdown (populated from *Project Settings → Tags and Layers*). Every registered sortable is moved into this layer each frame.
 - **Rebuild Zones On Awake** (default on) — when enabled, the service builds its zone graph in `Awake` using whatever sorting lines exist in the scene at that point. Turn it off if you load content additively (e.g. per-room) and want to rebuild explicitly; see *Rebuilding zones* below.
+- **Zone Order Stride** (default 10) — gap between adjacent zones' sorting orders. Sortables sitting on a zone boundary (walls) set their `SortOrderBias` in `[0, stride)` to occupy an intermediate slot that movers can't tie with. 10 leaves room for several bias slots (wall base, decal, etc.); set higher if you need more, lower to keep integer orders denser.
 
 ### 2. Author sorting lines
 
@@ -53,9 +54,14 @@ Lines are treated as infinite (extended beyond their endpoints), so you don't ne
 
 ### 3. Tag your sortable objects
 
-Add a **`ZoneSortable`** component to anything that needs to be sorted dynamically. It requires a `SortingGroup` (auto-enforced) and uses `transform.position` as its sort position.
+Two stock `IZoneSortable` MonoBehaviours cover the common cases:
 
-If you need a different sort anchor (e.g. a character's feet rather than their pivot), implement `IZoneSortable` yourself instead of using `ZoneSortable`. `ZoneSortable.cs` is the reference implementation; copy it and change `SortPosition`:
+- **`DynamicZoneSortable`** for anything that moves (characters, props, items). `SortPosition` tracks `transform.position` each frame.
+- **`BoundaryZoneSortable`** for things that sit *on* a sorting line (walls, fences, doors, railings). Assign the line in the inspector; the component derives `SortPosition` from the line's midpoint (offset onto the back side) and defaults `SortOrderBias` to `1` so the wall renders strictly between its two zones and can never tie with a mover on either side.
+
+Both components require a `SortingGroup` (auto-enforced).
+
+If you need a different sort anchor (e.g. a character's feet rather than their pivot), implement `IZoneSortable` yourself. `DynamicZoneSortable.cs` is the reference implementation; copy it and change `SortPosition`:
 
 ```csharp
 using IsometricZoneSorting;
@@ -73,20 +79,15 @@ public class FootAnchoredSortable : MonoBehaviour, IZoneSortable
 
     private void Awake() => _sortingGroup = GetComponent<SortingGroup>();
     // Register with the IZoneSortingService in OnEnable / Unregister in OnDisable —
-    // see ZoneSortable.cs for the full pattern.
+    // see DynamicZoneSortable.cs for the full pattern.
 }
 ```
 
-### Sortables on a boundary (walls, fences, doors)
+### Why boundary sortables need a bias
 
-Anything that sits *on* a sorting line — walls, fences, railings — needs to render strictly between the two zones the line separates, so a mover in either zone never ties with it. To support this, zone orders are spaced by `ZoneGraph.ZoneOrderStride` (currently 10), and each `IZoneSortable` exposes a `SortOrderBias` added on top of its zone's order.
+A wall that sits on a sorting line has to render strictly between the line's back zone and front zone — otherwise a mover in the back zone ends up tied with the wall. Zone orders are spaced by the service's **Zone Order Stride** (default 10), and `IZoneSortable.SortOrderBias` is added on top.
 
-The recipe for a wall:
-
-1. Place the wall's pivot (or its custom `SortPosition`) slightly behind its own line — a tiny offset along `-FrontNormal` — so it resolves into the zone just behind the line.
-2. Set **Sort Order Bias** to `1` on its `ZoneSortable`.
-
-That puts the wall at `backZoneOrder + 1`. Anything on the front side of the line is in a zone with order ≥ `backZoneOrder + 10`, so it renders above the wall. Anything on the back side is in the same zone as the wall (order = `backZoneOrder`), so it renders below. Biases must be in `[0, ZoneGraph.ZoneOrderStride)`; values ≥ the stride will collide with the next zone.
+`BoundaryZoneSortable` applies this automatically: with default settings it lands at `backZoneOrder + 1`. Anything on the front side of the line is in a zone with order ≥ `backZoneOrder + 10`, so it renders above. Anything on the back side is in the same zone as the wall (order = `backZoneOrder`), so it renders below. Biases must be in `[0, stride)`; values ≥ the stride will collide with the next zone.
 
 ### Rebuilding zones
 
@@ -105,8 +106,9 @@ The **Demo Scene** sample (importable via Package Manager) shows all of this wir
 
 | Type | Role |
 | --- | --- |
-| `IZoneSortable` | Contract: exposes a `SortingGroup` and a `SortPosition` |
-| `ZoneSortable` | Default MonoBehaviour implementation |
+| `IZoneSortable` | Contract: exposes a `SortingGroup`, a `SortPosition`, and an optional `SortOrderBias` |
+| `DynamicZoneSortable` | Default implementation for movers; `SortPosition` = `transform.position` |
+| `BoundaryZoneSortable` | Implementation for walls/fences/doors; `SortPosition` derived from a `ZoneSortingLine` |
 | `IZoneSortingService` / `ZoneSortingService` | Registers sortables and writes sorting orders each frame |
 | `ZoneSortingLine` / `SortingPoint` | Authoring components that define zone boundaries |
 | `ZoneGraph` | Computes zones, builds the DAG, runs the topological sort |

@@ -10,12 +10,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `IZoneSortable.SortOrderBias` — integer offset added on top of the zone's order, so sortables sitting on a zone boundary (walls, fences, doors) can render strictly between two zones and never tie with movers.
-- `ZoneGraph.ZoneOrderStride` — zone orders are now spaced by 10 (instead of 1) to leave room for bias slots.
-- `ZoneSortable` exposes a **Sort Order Bias** field in the inspector.
+- `BoundaryZoneSortable` — `IZoneSortable` that derives its `SortPosition` from a serialized `ZoneSortingLine` (midpoint, nudged onto the back side) and defaults `SortOrderBias` to `1`. Drop this on a wall sprite to handle the boundary recipe automatically.
+- `ZoneSortingService.ZoneOrderStride` — inspector-configurable gap between adjacent zones' sorting orders. Defaults to `10`; passed into `ZoneGraph` at build time.
+- `ZoneGraph` exposes `ZoneOrderStride` as an instance property and accepts it as a constructor argument.
 
 ### Changed
 
-- Zones are assigned sorting orders `0, 10, 20, …` instead of `0, 1, 2, …`. If your project reads `SortingOrderInLayer` directly, divide by `ZoneGraph.ZoneOrderStride` to recover the old value.
+- **Renamed** `ZoneSortable` → `DynamicZoneSortable`. The file's `.meta` GUID is preserved, so existing scene references continue to resolve. If you reference the class by name in code, rename accordingly.
+- Zones are assigned sorting orders `0, stride, 2·stride, …` instead of `0, 1, 2, …`. If your project reads `SortingOrderInLayer` directly, divide by the graph's `ZoneOrderStride` to recover the old value.
 
 ## [0.1.0] - 2026-04-17
 

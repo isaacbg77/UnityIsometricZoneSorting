@@ -33,7 +33,8 @@ namespace IsometricZoneSorting
                 .ToList();
             if (validLines.Count == 0) return;
 
-            var graph = new ZoneGraph(validLines);
+            var service = GetComponent<ZoneSortingService>();
+            var graph = new ZoneGraph(validLines, service.ZoneOrderStride);
 
             // Draw zone overlays by sampling a grid
             var columnsCount = Mathf.CeilToInt(_gridSize.x / _cellSize);
@@ -45,7 +46,7 @@ namespace IsometricZoneSorting
                 {
                     var worldPosition = _gridOrigin + new Vector2(column * _cellSize + _cellSize * 0.5f, row * _cellSize + _cellSize * 0.5f);
                     var sortingOrder = graph.GetSortingOrderInLayer(worldPosition);
-                    var colorIndex = (sortingOrder / ZoneGraph.ZoneOrderStride) % ZoneColors.Length;
+                    var colorIndex = (sortingOrder / graph.ZoneOrderStride) % ZoneColors.Length;
 
                     Gizmos.color = ZoneColors[colorIndex];
                     Gizmos.DrawCube(worldPosition, new Vector3(_cellSize, _cellSize, 0f));

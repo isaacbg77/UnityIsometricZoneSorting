@@ -13,23 +13,27 @@ namespace IsometricZoneSorting
     /// </summary>
     public class ZoneGraph
     {
-        /// <summary>
-        /// Gap between adjacent zones' sorting orders. Sortables can sit in the
-        /// gap by returning a positive <c>SortOrderBias</c> less than this value.
-        /// </summary>
-        public const int ZoneOrderStride = 10;
-
         private readonly List<ZoneSortingLine> _lines;
         private readonly List<ZoneDefinition> _zones;
         private readonly Dictionary<ZoneSignature, ZoneDefinition> _zonesBySignature;
+        private readonly int _zoneOrderStride;
 
         public IReadOnlyList<ZoneDefinition> Zones => _zones;
 
-        public ZoneGraph(IReadOnlyList<ZoneSortingLine> lines)
+        /// <summary>
+        /// Gap between adjacent zones' sorting orders. Sortables can sit in the
+        /// gap by returning a <c>SortOrderBias</c> in <c>[0, ZoneOrderStride)</c>.
+        /// </summary>
+        public int ZoneOrderStride => _zoneOrderStride;
+
+        public ZoneGraph(IReadOnlyList<ZoneSortingLine> lines, int zoneOrderStride = 10)
         {
+            if (zoneOrderStride < 1) throw new System.ArgumentOutOfRangeException(nameof(zoneOrderStride), "Stride must be at least 1.");
+
             _lines = new List<ZoneSortingLine>(lines);
             _zones = new List<ZoneDefinition>();
             _zonesBySignature = new Dictionary<ZoneSignature, ZoneDefinition>();
+            _zoneOrderStride = zoneOrderStride;
 
             BuildGraph();
         }
@@ -48,7 +52,7 @@ namespace IsometricZoneSorting
 
             var signatures = CalculateAllSignatures();
             var adjacency = BuildAdjacencyGraph(signatures);
-            var sortedOrders = TopologicalSort(signatures.Count, adjacency);
+            var sortedOrders = TopologicalSort(signatures.Count, adjacency, _zoneOrderStride);
 
             for (var zoneIndex = 0; zoneIndex < signatures.Count; zoneIndex++)
             {
@@ -212,7 +216,7 @@ namespace IsometricZoneSorting
         /// <param name="zoneCount">The number of zones in the graph.</param>
         /// <param name="adjacency">A dictionary mapping zone indices to lists of incoming zone indices.</param>
         /// <returns>An array of zone sorting orders, one for each zone.</returns>
-        private static int[] TopologicalSort(int zoneCount, Dictionary<int, List<int>> adjacency)
+        private static int[] TopologicalSort(int zoneCount, Dictionary<int, List<int>> adjacency, int stride)
         {
             var inDegree = new int[zoneCount];
             foreach (var neighbors in adjacency.Values)
@@ -247,7 +251,7 @@ namespace IsometricZoneSorting
                 for (var batchIndex = 0; batchIndex < batchSize; batchIndex++)
                 {
                     var zoneIndex = queue.Dequeue();
-                    sortingOrders[zoneIndex] = currentOrder * ZoneOrderStride;
+                    sortingOrders[zoneIndex] = currentOrder * stride;
                     processedCount++;
 
                     if (adjacency.TryGetValue(zoneIndex, out var neighbors))
@@ -273,7 +277,7 @@ namespace IsometricZoneSorting
                     // Now we can safely check for -1
                     if (sortingOrders[zoneIndex] == -1)
                     {
-                        sortingOrders[zoneIndex] = currentOrder * ZoneOrderStride;
+                        sortingOrders[zoneIndex] = currentOrder * stride;
                     }
                 }
             }
