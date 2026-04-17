@@ -12,13 +12,6 @@ namespace IsometricZoneSorting
 
         private ZoneGraph? _graph;
 
-        // TODO: In production, this should listen to room manager events and rebuild
-        // zones when a new room is loaded, using only lines from that room's scene.
-        private void Awake()
-        {
-            RebuildZones();
-        }
-
         public void Register(IZoneSortable sortable)
         {
             _sortables.Add(sortable);

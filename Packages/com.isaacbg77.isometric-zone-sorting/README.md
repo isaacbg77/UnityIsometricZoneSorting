@@ -52,7 +52,7 @@ Import the **Demo Scene** sample via the Package Manager for a working example.
 
 ## Notes
 
-- `ZoneSortingService.RebuildZones()` runs on `Awake`. If you load rooms/scenes additively at runtime, call it again so only the currently-loaded lines participate.
+- `ZoneSortingService.RebuildZones()` is **not** called automatically — you need to call it from your own scene/room loader whenever the set of `ZoneSortingLine`s changes. The demo sample ships with a small `RebuildZonesOnAwake` helper that just calls it on `Awake` for convenience.
 - Sorting lines are treated as infinite (extended beyond their endpoints) so zone boundaries stay continuous without fragmentation.
 - Namespace: `IsometricZoneSorting`. Assembly: `IsaacBG77.IsometricZoneSorting`.
 
