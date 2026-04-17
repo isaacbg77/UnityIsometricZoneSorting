@@ -17,6 +17,7 @@ namespace IsometricZoneSorting
         private ZoneGraph? _graph;
 
         public int ZoneOrderStride => _zoneOrderStride;
+        public ZoneGraph? Graph => _graph;
         
         private void Awake()
         {
@@ -60,7 +61,10 @@ namespace IsometricZoneSorting
 
             _graph = new ZoneGraph(validLines, _zoneOrderStride);
 
-            Debug.Log($"[{nameof(ZoneSortingService)}]: Built zone graph with {validLines.Count} lines and {_graph.Zones.Count} zones", this);
+            if (Application.isPlaying)
+            {
+                Debug.Log($"[{nameof(ZoneSortingService)}]: Built zone graph with {validLines.Count} lines and {_graph.Zones.Count} zones", this);
+            }
         }
     }
 }

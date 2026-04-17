@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Linq;
 using UnityEngine;
 
 namespace IsometricZoneSorting
@@ -25,16 +24,11 @@ namespace IsometricZoneSorting
 
         private void OnDrawGizmosSelected()
         {
-            var sortingLines = FindObjectsByType<ZoneSortingLine>(FindObjectsSortMode.None);
-            if (sortingLines.Length == 0) return;
-
-            var validLines = sortingLines
-                .Where(line => line.IsValid)
-                .ToList();
-            if (validLines.Count == 0) return;
-
             var service = GetComponent<ZoneSortingService>();
-            var graph = new ZoneGraph(validLines, service.ZoneOrderStride);
+            if (!Application.isPlaying) service.RebuildZones();
+
+            var graph = service.Graph;
+            if (graph == null || graph.Zones.Count <= 1) return;
 
             // Draw zone overlays by sampling a grid
             var columnsCount = Mathf.CeilToInt(_gridSize.x / _cellSize);
