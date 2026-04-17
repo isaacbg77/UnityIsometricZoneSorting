@@ -1,0 +1,18 @@
+{
+    "name": "IsaacBG77.IsometricZoneSorting.Editor",
+    "rootNamespace": "IsometricZoneSorting.Editor",
+    "references": [
+        "IsaacBG77.IsometricZoneSorting"
+    ],
+    "includePlatforms": [
+        "Editor"
+    ],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}

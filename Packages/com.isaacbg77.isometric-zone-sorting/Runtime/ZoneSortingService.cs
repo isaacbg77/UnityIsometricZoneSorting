@@ -6,7 +6,7 @@ namespace IsometricZoneSorting
 {
     public class ZoneSortingService : MonoBehaviour, IZoneSortingService
     {
-        [SerializeField] private SortingLayerReference? _dynamicSortingLayer;
+        [SerializeField, SortingLayer] private string _dynamicSortingLayerName = "Default";
 
         private readonly HashSet<IZoneSortable> _sortables = new();
 
@@ -31,13 +31,15 @@ namespace IsometricZoneSorting
 
         private void LateUpdate()
         {
-            if (_graph == null || _dynamicSortingLayer == null) return;
+            if (_graph == null) return;
+
+            var layerId = SortingLayer.NameToID(_dynamicSortingLayerName);
 
             foreach (var sortable in _sortables)
             {
                 if (sortable.SortingGroup == null) continue;
 
-                sortable.SortingGroup.sortingLayerID = _dynamicSortingLayer.Id;
+                sortable.SortingGroup.sortingLayerID = layerId;
                 sortable.SortingGroup.sortingOrder = _graph.GetSortingOrderInLayer(sortable.SortPosition);
             }
         }

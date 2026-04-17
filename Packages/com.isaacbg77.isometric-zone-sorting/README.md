@@ -31,10 +31,9 @@ Cycles (contradictory line orientations) are detected and the affected zones fal
 
 ## Quickstart
 
-1. **Create a sorting-layer asset.** Right-click in the Project window → *Create → Isometric Zone Sorting → Sorting Layer Reference* and set its `Sorting Layer Name` to a layer you've defined in *Project Settings → Tags and Layers*.
-2. **Add a `ZoneSortingService`** to an empty GameObject in the scene. Drag the `SortingLayerReference` asset into the `Dynamic Sorting Layer` field.
-3. **Author sorting lines.** Create a GameObject for each line with a `ZoneSortingLine` component, plus two child GameObjects with `SortingPoint` components as endpoints. Set `Front Normal` to point toward whichever side should render in front. Optional: add `ZoneSortingLineGizmos` for scene-view visualization.
-4. **Tag sortable objects.** Add a `ZoneSortable` component to anything that needs dynamic depth. It requires a `SortingGroup` (auto-enforced) and uses `transform.position` as its sort position.
+1. **Add a `ZoneSortingService`** to an empty GameObject in the scene. Pick a sorting layer in the `Dynamic Sorting Layer Name` dropdown (populated from *Project Settings → Tags and Layers*).
+2. **Author sorting lines.** Create a GameObject for each line with a `ZoneSortingLine` component, plus two child GameObjects with `SortingPoint` components as endpoints. Set `Front Normal` to point toward whichever side should render in front. Optional: add `ZoneSortingLineGizmos` for scene-view visualization.
+3. **Tag sortable objects.** Add a `ZoneSortable` component to anything that needs dynamic depth. It requires a `SortingGroup` (auto-enforced) and uses `transform.position` as its sort position.
 
 Import the **Demo Scene** sample via the Package Manager for a working example.
 
@@ -48,7 +47,7 @@ Import the **Demo Scene** sample via the Package Manager for a working example.
 | `ZoneSortingLine` / `SortingPoint` | Authoring components that define zone boundaries |
 | `ZoneGraph` | Computes zones, builds the DAG, runs the topological sort |
 | `ZoneSignature` / `ZoneDefinition` | Immutable zone identity and resolved order |
-| `SortingLayerReference` | ScriptableObject holding a sorting layer name |
+| `[SortingLayer]` attribute | Marks a string field to render as a sorting-layer dropdown in the inspector |
 | `ZoneSortingGizmos` / `ZoneSortingLineGizmos` | Editor visualization |
 
 ## Notes
