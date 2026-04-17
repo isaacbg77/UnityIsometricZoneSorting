@@ -100,7 +100,7 @@ namespace IsometricZoneSorting
                 return false;
             }
 
-            center = (Vector3)(sum / count);
+            center = sum / count;
             return true;
         }
     }

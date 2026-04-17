@@ -29,13 +29,66 @@ Or add to `Packages/manifest.json`:
 
 Cycles (contradictory line orientations) are detected and the affected zones fall back to a trailing order with a warning.
 
-## Quickstart
+## Usage
 
-1. **Add a `ZoneSortingService`** to an empty GameObject in the scene. Pick a sorting layer in the `Dynamic Sorting Layer Name` dropdown (populated from *Project Settings → Tags and Layers*).
-2. **Author sorting lines.** Create a GameObject for each line with a `ZoneSortingLine` component, plus two child GameObjects with `SortingPoint` components as endpoints. Set `Front Normal` to point toward whichever side should render in front. Optional: add `ZoneSortingLineGizmos` for scene-view visualization.
-3. **Tag sortable objects.** Add a `ZoneSortable` component to anything that needs dynamic depth. It requires a `SortingGroup` (auto-enforced) and uses `transform.position` as its sort position.
+Minimum viable setup is three steps: add the service, author some sorting lines, tag the objects you want sorted.
 
-Import the **Demo Scene** sample via the Package Manager for a working example.
+### 1. Add a `ZoneSortingService`
+
+Create an empty GameObject in the scene and add a `ZoneSortingService` component. In the inspector:
+
+- **Dynamic Sorting Layer Name** — pick a sorting layer from the dropdown (populated from *Project Settings → Tags and Layers*). Every registered sortable is moved into this layer each frame.
+- **Rebuild Zones On Awake** (default on) — when enabled, the service builds its zone graph in `Awake` using whatever sorting lines exist in the scene at that point. Turn it off if you load content additively (e.g. per-room) and want to rebuild explicitly; see *Rebuilding zones* below.
+
+### 2. Author sorting lines
+
+For each line that should partition depth:
+
+1. Create an empty GameObject with a **`ZoneSortingLine`** component.
+2. Add two child GameObjects with **`SortingPoint`** components and drag them into the line's `Sorting Point A` and `Sorting Point B` fields.
+3. Set **`Front Normal`** to point toward the side you want rendered in front of the other.
+4. *(Optional)* Add **`ZoneSortingLineGizmos`** on the line for Scene-view visualization, or **`ZoneSortingGizmos`** on the service GameObject to preview the resulting zones as a colored grid.
+
+Lines are treated as infinite (extended beyond their endpoints), so you don't need to cover the full extent of the scene — just place the endpoints where the boundary *changes direction*.
+
+### 3. Tag your sortable objects
+
+Add a **`ZoneSortable`** component to anything that needs to be sorted dynamically. It requires a `SortingGroup` (auto-enforced) and uses `transform.position` as its sort position.
+
+If you need a different sort anchor (e.g. a character's feet rather than their pivot), implement `IZoneSortable` yourself instead of using `ZoneSortable`. `ZoneSortable.cs` is the reference implementation; copy it and change `SortPosition`:
+
+```csharp
+using IsometricZoneSorting;
+using UnityEngine;
+using UnityEngine.Rendering;
+
+[RequireComponent(typeof(SortingGroup))]
+public class FootAnchoredSortable : MonoBehaviour, IZoneSortable
+{
+    [SerializeField] private Transform _feet;
+
+    private SortingGroup _sortingGroup;
+    public SortingGroup SortingGroup => _sortingGroup;
+    public Vector2 SortPosition => _feet.position;
+
+    private void Awake() => _sortingGroup = GetComponent<SortingGroup>();
+    // Register with the IZoneSortingService in OnEnable / Unregister in OnDisable —
+    // see ZoneSortable.cs for the full pattern.
+}
+```
+
+### Rebuilding zones
+
+The zone graph is a snapshot of the sorting lines present when it was last built. If lines are added, removed, or moved at runtime, call `RebuildZones()` on the service:
+
+```csharp
+var service = FindFirstObjectByType<ZoneSortingService>();
+service.RebuildZones();
+```
+
+Typical triggers: finishing a room transition, loading a scene additively, or swapping a level chunk. For a static scene, `Rebuild Zones On Awake` is enough.
+
+The **Demo Scene** sample (importable via Package Manager) shows all of this wired up, including a tiny `RebuildZonesOnAwake` helper illustrating how to drive rebuilds from an external script.
 
 ## Key types
 
@@ -52,8 +105,8 @@ Import the **Demo Scene** sample via the Package Manager for a working example.
 
 ## Notes
 
-- `ZoneSortingService.RebuildZones()` is **not** called automatically — you need to call it from your own scene/room loader whenever the set of `ZoneSortingLine`s changes. The demo sample ships with a small `RebuildZonesOnAwake` helper that just calls it on `Awake` for convenience.
-- Sorting lines are treated as infinite (extended beyond their endpoints) so zone boundaries stay continuous without fragmentation.
+- The service updates sorting orders in `LateUpdate` so it sees each sortable's final position for the frame (after animation, physics, and user scripts).
+- Cycles in the zone graph (caused by contradictory `Front Normal` orientations across lines) are detected and logged as a warning; affected zones get a fallback order.
 - Namespace: `IsometricZoneSorting`. Assembly: `IsaacBG77.IsometricZoneSorting`.
 
 ## License

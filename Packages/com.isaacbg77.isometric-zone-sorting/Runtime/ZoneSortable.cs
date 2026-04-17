@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.Rendering;
 
@@ -9,7 +10,7 @@ namespace IsometricZoneSorting
         private IZoneSortingService? _zoneSortingService;
         private SortingGroup? _sortingGroup;
 
-        public SortingGroup SortingGroup => _sortingGroup!;
+        public SortingGroup SortingGroup => _sortingGroup ?? throw new NullReferenceException();
         public Vector2 SortPosition => transform.position;
 
         private void Awake()

@@ -12,22 +12,26 @@ namespace IsometricZoneSorting
     {
         private readonly bool[] _sides;
 
-        public int LineCount => _sides.Length;
-
         public ZoneSignature(bool[] sides)
         {
             _sides = sides;
         }
 
+        /// <summary>
+        /// Returns true if the zone is on the front side of the sorting line.
+        /// </summary>
+        /// <param name="lineIndex">Index of the sorting line to check.</param>
+        /// <returns>True if the zone is on the front side of the sorting line.</returns>
         public bool IsOnFrontSide(int lineIndex)
         {
             return _sides[lineIndex];
         }
 
         /// <summary>
-        /// Returns the index of the single differing line, or -1 if signatures
-        /// differ by zero or more than one line.
+        /// Returns the index of the line that differs between this and another signature.
         /// </summary>
+        /// <param name="other">The other zone signature to compare with.</param>
+        /// <returns>The index of the differing line, or -1 if signatures differ by zero or more than one line.</returns>
         public int FindSingleDifferingLine(ZoneSignature other)
         {
             var differingIndex = -1;
@@ -47,8 +51,10 @@ namespace IsometricZoneSorting
         }
 
         /// <summary>
-        /// Returns how many lines match between this and another signature.
+        /// Counts the number of lines that are the same between this and another signature.
         /// </summary>
+        /// <param name="other">The other zone signature to compare with.</param>
+        /// <returns>The number of matching lines.</returns>
         public int CountMatches(ZoneSignature other)
         {
             var count = 0;

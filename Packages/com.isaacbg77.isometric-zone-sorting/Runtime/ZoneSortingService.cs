@@ -6,11 +6,19 @@ namespace IsometricZoneSorting
 {
     public class ZoneSortingService : MonoBehaviour, IZoneSortingService
     {
-        [SerializeField, SortingLayer] private string _dynamicSortingLayerName = "Default";
+        [SerializeField, SortingLayer] private string _zoneSortingLayer = "Default";
+        [SerializeField] private bool _rebuildZonesOnAwake = true;
 
         private readonly HashSet<IZoneSortable> _sortables = new();
-
         private ZoneGraph? _graph;
+        
+        private void Awake()
+        {
+            if (_rebuildZonesOnAwake)
+            {
+                RebuildZones();
+            }
+        }
 
         public void Register(IZoneSortable sortable)
         {
@@ -26,7 +34,7 @@ namespace IsometricZoneSorting
         {
             if (_graph == null) return;
 
-            var layerId = SortingLayer.NameToID(_dynamicSortingLayerName);
+            var layerId = SortingLayer.NameToID(_zoneSortingLayer);
 
             foreach (var sortable in _sortables)
             {

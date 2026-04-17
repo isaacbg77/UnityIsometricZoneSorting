@@ -9,12 +9,21 @@ namespace IsometricZoneSorting
 
         private void Awake()
         {
+            GetDependencies();
+        }
+        
+        private void OnValidate()
+        {
+            GetDependencies();
+        }
+
+        private void GetDependencies()
+        {
             _sortingLine = GetComponent<ZoneSortingLine>();
         }
 
         private void OnDrawGizmos()
         {
-            if (_sortingLine == null) _sortingLine = GetComponent<ZoneSortingLine>();
             if (_sortingLine == null) return;
             if (_sortingLine.SortingPointA == null || _sortingLine.SortingPointB == null) return;
 

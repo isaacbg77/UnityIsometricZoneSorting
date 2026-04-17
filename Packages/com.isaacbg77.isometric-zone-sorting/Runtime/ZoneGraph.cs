@@ -15,7 +15,6 @@ namespace IsometricZoneSorting
         private readonly List<ZoneDefinition> _zones;
         private readonly Dictionary<ZoneSignature, ZoneDefinition> _zonesBySignature;
 
-        public IReadOnlyList<ZoneSortingLine> Lines => _lines;
         public IReadOnlyList<ZoneDefinition> Zones => _zones;
 
         public ZoneGraph(IReadOnlyList<ZoneSortingLine> lines)
@@ -23,6 +22,7 @@ namespace IsometricZoneSorting
             _lines = new List<ZoneSortingLine>(lines);
             _zones = new List<ZoneDefinition>();
             _zonesBySignature = new Dictionary<ZoneSignature, ZoneDefinition>();
+
             BuildGraph();
         }
 
@@ -32,6 +32,7 @@ namespace IsometricZoneSorting
             {
                 var emptySignature = new ZoneSignature(System.Array.Empty<bool>());
                 var zone = new ZoneDefinition(0, emptySignature);
+
                 _zones.Add(zone);
                 _zonesBySignature[emptySignature] = zone;
                 return;
@@ -49,6 +50,9 @@ namespace IsometricZoneSorting
             }
         }
 
+        /// <summary>Returns the sorting order of the zone that contains the given world position.</summary>
+        /// <param name="worldPosition">The world position to check.</param>
+        /// <returns>The sorting order of the zone containing the position, or 0 if no zones are defined.</returns>
         public int GetSortingOrderInLayer(Vector2 worldPosition)
         {
             if (_zones.Count == 0) return 0;
@@ -65,11 +69,10 @@ namespace IsometricZoneSorting
             return closestZone.SortingOrderInLayer;
         }
 
+        /// <summary>Calculates all possible signatures for the sorting lines.</summary>
+        /// <returns>A list of ZoneSignature objects, one for each possible combination of sorting lines.</returns>
         private List<ZoneSignature> CalculateAllSignatures()
         {
-            // With N lines, each region of the scene has a unique combination of
-            // front/back sides. Enumerate all 2^N combinations. Zones that are
-            // geometrically unreachable simply never get objects assigned to them.
             var signatures = new List<ZoneSignature>();
             var lineCount = _lines.Count;
             var totalCombinations = 1 << lineCount;
@@ -88,11 +91,29 @@ namespace IsometricZoneSorting
             return signatures;
         }
 
+        /// <summary>Computes the signature for a given world position.</summary>
+        /// <param name="worldPosition">The world position to compute the signature for.</param>
+        /// <returns>A ZoneSignature object representing the zone that contains the position.</returns>
+        private ZoneSignature ComputeSignatureForPosition(Vector2 worldPosition)
+        {
+            var sides = new bool[_lines.Count];
+
+            for (var lineIndex = 0; lineIndex < _lines.Count; lineIndex++)
+            {
+                sides[lineIndex] = IsOnFrontSide(worldPosition, _lines[lineIndex]);
+            }
+
+            return new ZoneSignature(sides);
+        }
+
         /// <summary>
         /// Tests whether a point is on the front side of a sorting line.
         /// The line is treated as infinite (extending beyond both endpoints)
         /// to ensure clean, continuous zone boundaries without fragmentation.
         /// </summary>
+        /// <param name="point">The point to test.</param>
+        /// <param name="line">The sorting line to test against.</param>
+        /// <returns>True if the point is on the front side of the line, false otherwise.</returns>
         private static bool IsOnFrontSide(Vector2 point, ZoneSortingLine line)
         {
             var pointA = line.SortingPointA!.Position;
@@ -112,18 +133,9 @@ namespace IsometricZoneSorting
             return (crossProduct >= 0f) == (normalCross >= 0f);
         }
 
-        private ZoneSignature ComputeSignatureForPosition(Vector2 worldPosition)
-        {
-            var sides = new bool[_lines.Count];
-
-            for (var lineIndex = 0; lineIndex < _lines.Count; lineIndex++)
-            {
-                sides[lineIndex] = IsOnFrontSide(worldPosition, _lines[lineIndex]);
-            }
-
-            return new ZoneSignature(sides);
-        }
-
+        /// <summary>Finds the zone with the most matching lines to the given signature.</summary>
+        /// <param name="signature">The signature to match against.</param>
+        /// <returns>The zone with the most matching lines to the signature.</returns>
         private ZoneDefinition FindClosestMatchingZone(ZoneSignature signature)
         {
             var bestZone = _zones[0];
@@ -149,6 +161,8 @@ namespace IsometricZoneSorting
         /// The zone on the front side of that differing line gets an incoming edge
         /// from the zone on the back side, meaning "front zone renders on top of back zone".
         /// </summary>
+        /// <param name="signatures">A list of ZoneSignature objects representing all possible zone signatures.</param>
+        /// <returns>A dictionary mapping zone indices to lists of incoming zone indices.</returns>
         private static Dictionary<int, List<int>> BuildAdjacencyGraph(List<ZoneSignature> signatures)
         {
             var adjacency = new Dictionary<int, List<int>>();
@@ -187,6 +201,9 @@ namespace IsometricZoneSorting
         /// Each subsequent depth level increments the order by 1.
         /// Detects cycles (contradictory line orientations) and assigns a fallback order.
         /// </summary>
+        /// <param name="zoneCount">The number of zones in the graph.</param>
+        /// <param name="adjacency">A dictionary mapping zone indices to lists of incoming zone indices.</param>
+        /// <returns>An array of zone sorting orders, one for each zone.</returns>
         private static int[] TopologicalSort(int zoneCount, Dictionary<int, List<int>> adjacency)
         {
             var inDegree = new int[zoneCount];
@@ -208,9 +225,9 @@ namespace IsometricZoneSorting
             }
 
             var sortingOrders = new int[zoneCount];
-            for (var i = 0; i < zoneCount; i++) 
+            for (var i = 0; i < zoneCount; i++)
             {
-                sortingOrders[i] = -1; 
+                sortingOrders[i] = -1;
             }
 
             var currentOrder = 0;
