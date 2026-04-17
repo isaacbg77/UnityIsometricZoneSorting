@@ -16,7 +16,15 @@ Or add to your project's `Packages/manifest.json`:
 "com.isaacbg77.isometric-zone-sorting": "https://github.com/isaacbg77/UnityIsometricZoneSorting.git?path=/Packages/com.isaacbg77.isometric-zone-sorting"
 ```
 
-Requires Unity 6.0+. See the package [README](Packages/com.isaacbg77.isometric-zone-sorting/README.md) for usage, the key types reference, and a quickstart.
+Requires Unity 6.0+.
+
+## Usage at a glance
+
+1. **Add a `ZoneSortingService`** to a GameObject and pick a sorting layer from the `Dynamic Sorting Layer Name` dropdown.
+2. **Author sorting lines** — a `ZoneSortingLine` with two `SortingPoint` child endpoints and a `Front Normal` pointing at whichever side should render on top.
+3. **Tag sortable objects** with a `ZoneSortable` component (requires a `SortingGroup`).
+
+Import the **Demo Scene** sample via the Package Manager to see it wired up. Full setup docs, a custom-anchor example, and the rebuild-on-demand workflow are in the [package README](Packages/com.isaacbg77.isometric-zone-sorting/README.md).
 
 ## Repo layout
 
