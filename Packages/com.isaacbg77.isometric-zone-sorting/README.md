@@ -88,7 +88,7 @@ service.RebuildZones();
 
 Typical triggers: finishing a room transition, loading a scene additively, or swapping a level chunk. For a static scene, `Rebuild Zones On Awake` is enough.
 
-The **Demo Scene** sample (importable via Package Manager) shows all of this wired up, including a tiny `RebuildZonesOnAwake` helper illustrating how to drive rebuilds from an external script.
+The **Demo Scene** sample (importable via Package Manager) shows all of this wired up.
 
 ## Key types
 

@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Initial release.
-- `ZoneSortingService` — registers sortables and assigns their `sortingOrder` each `LateUpdate` based on a zone graph. Call `RebuildZones()` from your scene/room loader when the set of sorting lines changes; the service does not auto-build on `Awake`. The demo sample ships with a `RebuildZonesOnAwake` helper for convenience.
+- `ZoneSortingService` — registers sortables and assigns their `sortingOrder` each `LateUpdate` based on a zone graph. Builds the graph on `Awake` by default; toggle `Rebuild Zones On Awake` off and call `RebuildZones()` manually if you load content additively.
 - `ZoneSortingLine` — authoring component that partitions the scene into front/back sides.
 - `ZoneSortable` + `IZoneSortable` — marks objects whose depth should be driven by the zone graph.
 - `ZoneGraph` — computes zones from sorting lines and runs a topological sort (Kahn's algorithm) over the resulting DAG.
