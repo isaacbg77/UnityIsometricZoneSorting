@@ -9,11 +9,12 @@ namespace IsometricZoneSorting
         public Vector2 SortPosition { get; }
 
         /// <summary>
-        /// Integer added to the zone's sorting order when this sortable is rendered.
-        /// Lets sortables (e.g. walls, fences) sit in an intermediate slot between
-        /// adjacent zones so they never tie with movers. Must be in
-        /// <c>[0, stride)</c>, where stride is <see cref="ZoneGraph.ZoneOrderStride"/>
-        /// (configured on the <c>ZoneSortingService</c>).
+        /// Offset added to the first sorting layer of this sortable's zone to pick
+        /// a slot within that zone. Must be in <c>[0, stride - 1)</c> for sortables
+        /// that should stay inside the zone, where stride is
+        /// <see cref="IZoneSortingService.ZoneOrderStride"/>. A value of
+        /// <c>stride - 1</c> lands on the zone's front boundary (used by
+        /// <see cref="BoundaryZoneSortable"/> for things sitting on a sorting line).
         /// </summary>
         public int SortOrderBias => 0;
     }

@@ -7,9 +7,13 @@ namespace IsometricZoneSorting
     /// Computes depth zones from a set of sorting lines and provides spatial queries.
     /// Each line partitions the scene into a "front" and "back" side.
     /// Zones are regions that share the same ZoneSignature for all lines.
-    /// A topological sort assigns each zone a sortingOrderInLayer, spaced by
-    /// <see cref="ZoneOrderStride"/> so sortables can opt into intermediate
-    /// slots between zones via <c>IZoneSortable.SortOrderBias</c>.
+    /// A topological sort assigns each zone a sortingOrderInLayer of
+    /// <c>depth · ZoneOrderStride + 1</c>, so that stride multiples
+    /// (<c>0, stride, 2·stride, …</c>) are reserved for zone boundaries and each
+    /// zone spans the range between two adjacent boundaries. Sortables use
+    /// <c>IZoneSortable.SortOrderBias</c> in <c>[0, ZoneOrderStride - 1)</c> to pick
+    /// a slot within their zone; a bias of <c>ZoneOrderStride - 1</c> lands exactly
+    /// on the front boundary (used by <see cref="BoundaryZoneSortable"/>).
     /// </summary>
     public class ZoneGraph
     {
@@ -21,8 +25,9 @@ namespace IsometricZoneSorting
         public IReadOnlyList<ZoneDefinition> Zones => _zones;
 
         /// <summary>
-        /// Gap between adjacent zones' sorting orders. Sortables can sit in the
-        /// gap by returning a <c>SortOrderBias</c> in <c>[0, ZoneOrderStride)</c>.
+        /// Distance between adjacent zone boundaries. Boundaries live at
+        /// <c>0, stride, 2·stride, …</c>; each zone's first sorting layer is one
+        /// above its back boundary (<c>depth · stride + 1</c>).
         /// </summary>
         public int ZoneOrderStride => _zoneOrderStride;
 
@@ -209,8 +214,8 @@ namespace IsometricZoneSorting
 
         /// <summary>
         /// Assigns a sorting order to each zone using Kahn's algorithm for topological sorting.
-        /// Zones with no incoming edges (nothing behind them) get order 0.
-        /// Each subsequent depth level increments the order by 1.
+        /// Zones at depth D get order <c>D · stride + 1</c>, leaving the stride multiples
+        /// (<c>0, stride, 2·stride, …</c>) free as boundary-only orders.
         /// Detects cycles (contradictory line orientations) and assigns a fallback order.
         /// </summary>
         /// <param name="zoneCount">The number of zones in the graph.</param>
@@ -251,7 +256,7 @@ namespace IsometricZoneSorting
                 for (var batchIndex = 0; batchIndex < batchSize; batchIndex++)
                 {
                     var zoneIndex = queue.Dequeue();
-                    sortingOrders[zoneIndex] = currentOrder * stride;
+                    sortingOrders[zoneIndex] = currentOrder * stride + 1;
                     processedCount++;
 
                     if (adjacency.TryGetValue(zoneIndex, out var neighbors))
@@ -277,7 +282,7 @@ namespace IsometricZoneSorting
                     // Now we can safely check for -1
                     if (sortingOrders[zoneIndex] == -1)
                     {
-                        sortingOrders[zoneIndex] = currentOrder * stride;
+                        sortingOrders[zoneIndex] = currentOrder * stride + 1;
                     }
                 }
             }

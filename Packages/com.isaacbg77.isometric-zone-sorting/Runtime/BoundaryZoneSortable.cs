@@ -8,18 +8,16 @@ namespace IsometricZoneSorting
     /// <see cref="IZoneSortable"/> for static objects that sit on a sorting line
     /// (walls, fences, doors, railings). <see cref="SortPosition"/> is derived from the
     /// referenced <see cref="ZoneSortingLine"/> and nudged a hair onto its back side,
-    /// so the sortable resolves into the zone just behind the line. Combined with a
-    /// positive <see cref="SortOrderBias"/> (defaults to 1), it ends up in the gap
-    /// between the line's back and front zones — no tie with movers on either side.
+    /// so the sortable resolves into the zone just behind the line.
+    /// <see cref="SortOrderBias"/> is <c>stride - 1</c>, which lands the sortable
+    /// exactly on the zone's front boundary — strictly above the back zone and
+    /// strictly below the front zone, so it never ties with movers on either side.
     /// </summary>
     [RequireComponent(typeof(SortingGroup))]
     public class BoundaryZoneSortable : MonoBehaviour, IZoneSortable
     {
         [SerializeField, Tooltip("The sorting line this object sits on. SortPosition is the midpoint of the line's two SortingPoints, offset slightly onto its back side.")]
         private ZoneSortingLine? _line;
-
-        [SerializeField, Min(0), Tooltip("Offset added to the zone's sorting order. Must be in [0, stride). Default 1 puts this sortable strictly above the back zone and strictly below the front zone.")]
-        private int _sortOrderBias = 1;
 
         private const float BackSideEpsilon = 0.01f;
 
@@ -43,7 +41,7 @@ namespace IsometricZoneSorting
             }
         }
 
-        public int SortOrderBias => _sortOrderBias;
+        public int SortOrderBias => (_zoneSortingService?.ZoneOrderStride ?? 1) - 1;
 
         private void Awake()
         {

@@ -39,7 +39,7 @@ Create an empty GameObject in the scene and add a `ZoneSortingService` component
 
 - **Dynamic Sorting Layer Name** — pick a sorting layer from the dropdown (populated from *Project Settings → Tags and Layers*). Every registered sortable is moved into this layer each frame.
 - **Rebuild Zones On Awake** (default on) — when enabled, the service builds its zone graph in `Awake` using whatever sorting lines exist in the scene at that point. Turn it off if you load content additively (e.g. per-room) and want to rebuild explicitly; see *Rebuilding zones* below.
-- **Zone Order Stride** (default 10) — gap between adjacent zones' sorting orders. Sortables sitting on a zone boundary (walls) set their `SortOrderBias` in `[0, stride)` to occupy an intermediate slot that movers can't tie with. 10 leaves room for several bias slots (wall base, decal, etc.); set higher if you need more, lower to keep integer orders denser.
+- **Zone Order Stride** (default 10) — distance between adjacent zone boundaries. Boundary orders are reserved at `0, stride, 2·stride, …`; each zone occupies the `stride - 1` integers in between, starting one above its back boundary. Sortables inside a zone set `SortOrderBias` in `[0, stride - 1)` to pick a slot; walls on a sorting line use `stride - 1` to land on the boundary itself. 10 leaves room for several intra-zone slots (character, decal, prop); raise it if you need more, lower it to keep integer orders denser.
 
 ### 2. Author sorting lines
 
@@ -57,7 +57,7 @@ Lines are treated as infinite (extended beyond their endpoints), so you don't ne
 Two stock `IZoneSortable` MonoBehaviours cover the common cases:
 
 - **`DynamicZoneSortable`** for anything that moves (characters, props, items). `SortPosition` tracks `transform.position` each frame.
-- **`BoundaryZoneSortable`** for things that sit *on* a sorting line (walls, fences, doors, railings). Assign the line in the inspector; the component derives `SortPosition` from the line's midpoint (offset onto the back side) and defaults `SortOrderBias` to `1` so the wall renders strictly between its two zones and can never tie with a mover on either side.
+- **`BoundaryZoneSortable`** for things that sit *on* a sorting line (walls, fences, doors, railings). Assign the line in the inspector; the component derives `SortPosition` from the line's midpoint (offset onto the back side) and auto-sets `SortOrderBias` to `stride - 1` so the wall lands exactly on the boundary — strictly above every mover in the back zone and strictly below every mover in the front zone.
 
 Both components require a `SortingGroup` (auto-enforced).
 
@@ -85,9 +85,9 @@ public class FootAnchoredSortable : MonoBehaviour, IZoneSortable
 
 ### Why boundary sortables need a bias
 
-A wall that sits on a sorting line has to render strictly between the line's back zone and front zone — otherwise a mover in the back zone ends up tied with the wall. Zone orders are spaced by the service's **Zone Order Stride** (default 10), and `IZoneSortable.SortOrderBias` is added on top.
+A wall that sits on a sorting line has to render strictly between the line's back zone and front zone — otherwise a mover in the back zone ends up tied with the wall. With a stride of 10, zone boundaries occupy the multiples `0, 10, 20, …` and zones occupy the integers in between: the back-most zone uses `1–9`, the next zone `11–19`, and so on. `IZoneSortable.SortOrderBias` is an offset added to the zone's first sorting layer.
 
-`BoundaryZoneSortable` applies this automatically: with default settings it lands at `backZoneOrder + 1`. Anything on the front side of the line is in a zone with order ≥ `backZoneOrder + 10`, so it renders above. Anything on the back side is in the same zone as the wall (order = `backZoneOrder`), so it renders below. Biases must be in `[0, stride)`; values ≥ the stride will collide with the next zone.
+`BoundaryZoneSortable` applies this automatically: it reads the service's stride and sets its bias to `stride - 1`, landing it on the boundary (order `10`, `20`, …). Movers in the back zone sit at `1–8`, below it; movers in the front zone sit at `11–18`, above it. Biases on a sortable that should stay *inside* a zone must be in `[0, stride - 1)`; the `stride - 1` slot is the front boundary.
 
 ### Rebuilding zones
 
