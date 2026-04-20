@@ -3,6 +3,13 @@ using UnityEngine.Rendering;
 
 namespace IsometricZoneSorting
 {
+    /// <summary>
+    /// Base contract for anything whose depth should be driven by the zone graph.
+    /// Consumers don't implement this directly — they implement
+    /// <see cref="IDynamicZoneSortable"/> (re-resolved every frame) or
+    /// <see cref="IStaticZoneSortable"/> (resolved once per graph build), both of
+    /// which extend this interface.
+    /// </summary>
     public interface IZoneSortable
     {
         public SortingGroup SortingGroup { get; }

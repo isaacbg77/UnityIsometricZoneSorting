@@ -25,7 +25,7 @@ Or add to `Packages/manifest.json`:
 - A **`ZoneSortingLine`** is a line segment (two `SortingPoint` endpoints) plus a `FrontNormal` indicating which side renders on top.
 - `N` lines partition the scene into up to `2^N` **zones**, one per front/back combination.
 - A **`ZoneGraph`** builds a directed acyclic graph from these zones (zones differing by one line have an edge: back → front) and runs Kahn's topological sort to assign each zone an integer depth.
-- A **`ZoneSortingService`** registers every `IZoneSortable` in the scene. In `LateUpdate` it looks up each sortable's current zone and writes the resulting order into its `SortingGroup.sortingOrder`.
+- A **`ZoneSortingService`** registers every sortable in the scene as either an `IDynamicZoneSortable` (re-resolved every `LateUpdate`) or an `IStaticZoneSortable` (stamped once per `RebuildZones()` and skipped during the frame loop). Boundary geometry like walls stays out of the frame loop entirely.
 
 Cycles (contradictory line orientations) are detected and the affected zones fall back to a trailing order with a warning.
 
@@ -54,14 +54,14 @@ Lines are treated as infinite (extended beyond their endpoints), so you don't ne
 
 ### 3. Tag your sortable objects
 
-Two stock `IZoneSortable` MonoBehaviours cover the common cases:
+Two stock MonoBehaviours cover the common cases:
 
-- **`DynamicZoneSortable`** for anything that moves (characters, props, items). `SortPosition` tracks `transform.position` each frame.
-- **`BoundaryZoneSortable`** for things that sit *on* a sorting line (walls, fences, doors, railings). Assign the line in the inspector; the component derives `SortPosition` from the line's midpoint (offset onto the back side) and auto-sets `SortOrderBias` to `stride - 1` so the wall lands exactly on the boundary — strictly above every mover in the back zone and strictly below every mover in the front zone.
+- **`DynamicZoneSortable`** (`IDynamicZoneSortable`) for anything that moves (characters, props, items). `SortPosition` tracks `transform.position` each frame and the service re-resolves the order every `LateUpdate`.
+- **`BoundaryZoneSortable`** (`IStaticZoneSortable`) for things that sit *on* a sorting line (walls, fences, doors, railings). Assign the line in the inspector; the component derives `SortPosition` from the line's midpoint (offset onto the back side) and auto-sets `SortOrderBias` to `stride - 1` so the wall lands exactly on the boundary — strictly above every mover in the back zone and strictly below every mover in the front zone. The service stamps the order once at registration and skips it during the frame loop.
 
 Both components require a `SortingGroup` (auto-enforced).
 
-If you need a different sort anchor (e.g. a character's feet rather than their pivot), implement `IZoneSortable` yourself. `DynamicZoneSortable.cs` is the reference implementation; copy it and change `SortPosition`:
+If you need a different sort anchor (e.g. a character's feet rather than their pivot), implement `IDynamicZoneSortable` (or `IStaticZoneSortable` if the position never changes) yourself. `DynamicZoneSortable.cs` is the reference implementation; copy it and change `SortPosition`:
 
 ```csharp
 using IsometricZoneSorting;
@@ -69,7 +69,7 @@ using UnityEngine;
 using UnityEngine.Rendering;
 
 [RequireComponent(typeof(SortingGroup))]
-public class FootAnchoredSortable : MonoBehaviour, IZoneSortable
+public class FootAnchoredSortable : MonoBehaviour, IDynamicZoneSortable
 {
     [SerializeField] private Transform _feet;
 
@@ -106,10 +106,11 @@ The **Demo Scene** sample (importable via Package Manager) shows all of this wir
 
 | Type | Role |
 | --- | --- |
-| `IZoneSortable` | Contract: exposes a `SortingGroup`, a `SortPosition`, and an optional `SortOrderBias` |
+| `IZoneSortable` | Base contract: exposes a `SortingGroup`, a `SortPosition`, and an optional `SortOrderBias` |
+| `IDynamicZoneSortable` / `IStaticZoneSortable` | Marker interfaces extending `IZoneSortable`. Dynamic = re-resolved every frame; static = stamped once per graph build |
 | `DynamicZoneSortable` | Default implementation for movers; `SortPosition` = `transform.position` |
 | `BoundaryZoneSortable` | Implementation for walls/fences/doors; `SortPosition` derived from a `ZoneSortingLine` |
-| `IZoneSortingService` / `ZoneSortingService` | Registers sortables and writes sorting orders each frame |
+| `IZoneSortingService` / `ZoneSortingService` | Registers sortables, walks dynamics each frame, and stamps statics on rebuild |
 | `ZoneSortingLine` / `SortingPoint` | Authoring components that define zone boundaries |
 | `ZoneGraph` | Computes zones, builds the DAG, runs the topological sort |
 | `ZoneSignature` / `ZoneDefinition` | Immutable zone identity and resolved order |

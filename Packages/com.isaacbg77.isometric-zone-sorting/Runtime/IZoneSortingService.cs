@@ -9,7 +9,19 @@ namespace IsometricZoneSorting
         /// </summary>
         public int ZoneOrderStride { get; }
 
-        public void Register(IZoneSortable sortable);
-        public void Unregister(IZoneSortable sortable);
+        /// <summary>
+        /// Register a dynamic sortable. Its order is re-resolved every
+        /// <c>LateUpdate</c>.
+        /// </summary>
+        public void Register(IDynamicZoneSortable sortable);
+        public void Unregister(IDynamicZoneSortable sortable);
+
+        /// <summary>
+        /// Register a static sortable. Its order is resolved once at registration
+        /// (if the zone graph already exists) and again on every
+        /// <c>RebuildZones()</c>, then left alone during the frame loop.
+        /// </summary>
+        public void Register(IStaticZoneSortable sortable);
+        public void Unregister(IStaticZoneSortable sortable);
     }
 }

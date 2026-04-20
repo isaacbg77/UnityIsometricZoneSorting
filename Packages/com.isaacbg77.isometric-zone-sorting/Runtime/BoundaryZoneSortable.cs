@@ -5,16 +5,18 @@ using UnityEngine.Rendering;
 namespace IsometricZoneSorting
 {
     /// <summary>
-    /// <see cref="IZoneSortable"/> for static objects that sit on a sorting line
+    /// <see cref="IStaticZoneSortable"/> for static objects that sit on a sorting line
     /// (walls, fences, doors, railings). <see cref="SortPosition"/> is derived from the
     /// referenced <see cref="ZoneSortingLine"/> and nudged a hair onto its back side,
     /// so the sortable resolves into the zone just behind the line.
     /// <see cref="SortOrderBias"/> is <c>stride - 1</c>, which lands the sortable
     /// exactly on the zone's front boundary — strictly above the back zone and
     /// strictly below the front zone, so it never ties with movers on either side.
+    /// The service stamps the order once at registration and on every
+    /// <c>RebuildZones()</c>, skipping it during the frame loop.
     /// </summary>
     [RequireComponent(typeof(SortingGroup))]
-    public class BoundaryZoneSortable : MonoBehaviour, IZoneSortable
+    public class BoundaryZoneSortable : MonoBehaviour, IStaticZoneSortable
     {
         [SerializeField, Tooltip("The sorting line this object sits on. SortPosition is the midpoint of the line's two SortingPoints, offset slightly onto its back side.")]
         private ZoneSortingLine? _line;
