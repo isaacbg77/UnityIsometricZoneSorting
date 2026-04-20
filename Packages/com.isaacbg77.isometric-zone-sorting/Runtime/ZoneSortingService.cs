@@ -8,7 +8,7 @@ namespace IsometricZoneSorting
     {
         [SerializeField, SortingLayer] private string _zoneSortingLayer = "Default";
         
-        [SerializeField, Min(1), Tooltip("Gap between adjacent zones' sorting orders. Sortables sitting on a zone boundary can set SortOrderBias in [0, stride) to occupy an intermediate slot and never tie with movers.")]
+        [SerializeField, Min(2), Tooltip("Distance between adjacent zone boundaries. Boundary orders are 0, stride, 2·stride, …; zones occupy the integers in between. A sortable's SortOrderBias (0 to stride-2) picks a slot inside its zone; BoundaryZoneSortable uses stride-1 to land on the boundary itself.")]
         private int _zoneOrderStride = 10;
         
         [SerializeField] private bool _rebuildZonesOnAwake = true;
