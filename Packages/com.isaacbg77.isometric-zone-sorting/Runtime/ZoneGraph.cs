@@ -127,14 +127,22 @@ namespace IsometricZoneSorting
         /// Tests whether a point is on the front side of a sorting line.
         /// The line is treated as infinite (extending beyond both endpoints)
         /// to ensure clean, continuous zone boundaries without fragmentation.
+        /// Falls back to <c>false</c> (back side) if the line's sorting points
+        /// have been destroyed or cleared since the graph was built; lines are
+        /// validated at construction time, so this only guards against runtime
+        /// teardown.
         /// </summary>
         /// <param name="point">The point to test.</param>
         /// <param name="line">The sorting line to test against.</param>
         /// <returns>True if the point is on the front side of the line, false otherwise.</returns>
         private static bool IsOnFrontSide(Vector2 point, ZoneSortingLine line)
         {
-            var pointA = line.SortingPointA!.Position;
-            var pointB = line.SortingPointB!.Position;
+            var sortingPointA = line.SortingPointA;
+            var sortingPointB = line.SortingPointB;
+            if (sortingPointA == null || sortingPointB == null) return false;
+
+            var pointA = sortingPointA.Position;
+            var pointB = sortingPointB.Position;
             var frontNormal = line.FrontNormal;
 
             var lineDirection = pointB - pointA;
