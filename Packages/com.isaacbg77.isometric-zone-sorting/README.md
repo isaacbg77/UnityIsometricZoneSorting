@@ -91,10 +91,15 @@ A wall that sits on a sorting line has to render strictly between the line's bac
 
 ### Rebuilding zones
 
-The zone graph is a snapshot of the sorting lines present when it was last built. If lines are added, removed, or moved at runtime, call `RebuildZones()` on the service:
+The zone graph is a snapshot of the sorting lines present when it was last built. If lines are added, removed, or moved at runtime, rebuild it. For most scenes (one service in the hierarchy) the static shortcut is enough:
 
 ```csharp
-var service = FindFirstObjectByType<ZoneSortingService>();
+ZoneSortingService.RebuildAllZones();
+```
+
+If you already hold a reference to the service — or have more than one — call the instance method directly:
+
+```csharp
 service.RebuildZones();
 ```
 

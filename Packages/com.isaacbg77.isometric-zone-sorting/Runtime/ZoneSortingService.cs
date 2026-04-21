@@ -62,6 +62,18 @@ namespace IsometricZoneSorting
             }
         }
 
+        public static void RebuildAllZones()
+        {
+            var service = FindAnyObjectByType<ZoneSortingService>();
+            if (service == null)
+            {
+                Debug.LogWarning($"[{nameof(ZoneSortingService)}]: RebuildAllZones() found no active service in the scene.");
+                return;
+            }
+
+            service.RebuildZones();
+        }
+
         public void RebuildZones()
         {
             var sortingLines = FindObjectsByType<ZoneSortingLine>(FindObjectsSortMode.None);
