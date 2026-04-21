@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `ZoneSortingService.ZoneOrderStride` / `IZoneSortingService.ZoneOrderStride` — inspector-configurable distance between adjacent zone boundaries. Defaults to `10`; passed into `ZoneGraph` at build time and exposed on the service interface for sortables that need it.
 - `ZoneGraph` exposes `ZoneOrderStride` as an instance property and accepts it as a constructor argument.
 - `IDynamicZoneSortable` and `IStaticZoneSortable` — marker interfaces extending `IZoneSortable`. Dynamic sortables are re-resolved every `LateUpdate`; static sortables are stamped once on registration (if the graph exists) and again on every `RebuildZones()`, skipping the per-frame loop entirely. Rooms full of stationary boundary geometry now pay O(moving sortables) per frame instead of O(all sortables).
+- `ZoneSortingService.RebuildAllZones()` — static convenience wrapper that locates the active service and calls `RebuildZones()`, so callers don't need to hold a reference for the common single-service case.
 
 ### Changed
 
