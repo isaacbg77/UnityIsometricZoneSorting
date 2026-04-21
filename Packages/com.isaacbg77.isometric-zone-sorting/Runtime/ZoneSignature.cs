@@ -18,6 +18,11 @@ namespace IsometricZoneSorting
         }
 
         /// <summary>
+        /// Number of sorting lines encoded in this signature.
+        /// </summary>
+        public int LineCount => _sides.Length;
+
+        /// <summary>
         /// Returns true if the zone is on the front side of the sorting line.
         /// </summary>
         /// <param name="lineIndex">Index of the sorting line to check.</param>
