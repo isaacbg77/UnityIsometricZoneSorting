@@ -61,8 +61,7 @@ namespace IsometricZoneSorting
 
             var worldPolygon = BuildWorldPolygon();
             var signatures = new List<ZoneSignature>();
-            var polygons = new List<List<Vector2>>();
-            EnumerateNonEmptySignatures(worldPolygon, signatures, polygons);
+            EnumerateNonEmptySignatures(worldPolygon, signatures);
 
             var sigToIndex = new Dictionary<ZoneSignature, int>(signatures.Count);
             for (var i = 0; i < signatures.Count; i++)
@@ -73,7 +72,6 @@ namespace IsometricZoneSorting
             var parent = new int[signatures.Count];
             for (var i = 0; i < parent.Length; i++) parent[i] = i;
 
-            // (backIndex, frontIndex) — only when a real segment actually separates the pair.
             var separatingEdges = new List<(int back, int front)>();
 
             for (var i = 0; i < signatures.Count; i++)
@@ -84,7 +82,7 @@ namespace IsometricZoneSorting
                     if (!sigToIndex.TryGetValue(neighborSig, out var j)) continue;
                     if (j <= i) continue;
 
-                    if (SharedBoundaryOverlapsSegment(polygons[i], _lines[k]))
+                    if (SharedBoundaryOverlapsSegment(signatures[i], k))
                     {
                         if (signatures[i].IsOnFrontSide(k))
                             separatingEdges.Add((j, i));
@@ -134,11 +132,36 @@ namespace IsometricZoneSorting
                 }
             }
 
-            var sortedOrders = TopologicalSort(clusterCount, clusterAdjacency, _zoneOrderStride);
+            // Collapse strongly-connected components so that pairs of clusters with
+            // cyclic "in front of" relationships (geometrically ambiguous orderings)
+            // land at the same depth instead of stalling Kahn's algorithm entirely.
+            var sccIds = ComputeSccs(clusterCount, clusterAdjacency);
+            var sccCount = 0;
+            for (var c = 0; c < sccIds.Length; c++)
+            {
+                if (sccIds[c] + 1 > sccCount) sccCount = sccIds[c] + 1;
+            }
+
+            var sccAdjacency = new Dictionary<int, List<int>>(sccCount);
+            for (var s = 0; s < sccCount; s++) sccAdjacency[s] = new List<int>();
+            var seenSccEdges = new HashSet<long>();
+            foreach (var kv in clusterAdjacency)
+            {
+                var fromScc = sccIds[kv.Key];
+                foreach (var to in kv.Value)
+                {
+                    var toScc = sccIds[to];
+                    if (fromScc == toScc) continue;
+                    var key = ((long)fromScc << 32) | (uint)toScc;
+                    if (seenSccEdges.Add(key)) sccAdjacency[fromScc].Add(toScc);
+                }
+            }
+
+            var sccOrders = TopologicalSort(sccCount, sccAdjacency, _zoneOrderStride);
 
             for (var c = 0; c < clusterCount; c++)
             {
-                _zones.Add(new ZoneDefinition(sortedOrders[c], representativeSig[c]));
+                _zones.Add(new ZoneDefinition(sccOrders[sccIds[c]], representativeSig[c]));
             }
             for (var i = 0; i < signatures.Count; i++)
             {
@@ -232,8 +255,8 @@ namespace IsometricZoneSorting
 
         /// <summary>
         /// Builds a convex rectangle (CCW) large enough to contain every sorting line
-        /// plus a generous margin. Used as the clipping frame for per-signature zone
-        /// polygons; its size does not affect sort-order correctness as long as all
+        /// plus a generous margin. Used as the clipping frame for the non-emptiness
+        /// check; its size does not affect sort-order correctness as long as all
         /// queried world positions fall inside it.
         /// </summary>
         private List<Vector2> BuildWorldPolygon()
@@ -278,12 +301,9 @@ namespace IsometricZoneSorting
         /// <summary>
         /// For each of the 2^N raw signatures, clips the world polygon by every line's
         /// half-plane in the signature. Keeps only the signatures whose resulting
-        /// polygon is non-degenerate.
+        /// polygon is non-degenerate (they correspond to regions an object can occupy).
         /// </summary>
-        private void EnumerateNonEmptySignatures(
-            List<Vector2> worldPolygon,
-            List<ZoneSignature> signatures,
-            List<List<Vector2>> polygons)
+        private void EnumerateNonEmptySignatures(List<Vector2> worldPolygon, List<ZoneSignature> signatures)
         {
             var lineCount = _lines.Count;
             var totalCombinations = 1 << lineCount;
@@ -309,7 +329,6 @@ namespace IsometricZoneSorting
                 if (isEmpty) continue;
 
                 signatures.Add(new ZoneSignature(sides));
-                polygons.Add(polygon);
             }
         }
 
@@ -322,14 +341,7 @@ namespace IsometricZoneSorting
             if (input.Count == 0) return input;
 
             var a = line.SortingPointA!.Position;
-            var b = line.SortingPointB!.Position;
-            var dir = b - a;
-
-            // Left-hand perpendicular to AB. Sign flipped to agree with IsOnFrontSide.
-            var leftPerp = new Vector2(-dir.y, dir.x);
-            var normalCross = dir.x * line.FrontNormal.y - dir.y * line.FrontNormal.x;
-            var halfPlaneNormal = normalCross >= 0f ? leftPerp : -leftPerp;
-            if (!front) halfPlaneNormal = -halfPlaneNormal;
+            var halfPlaneNormal = HalfPlaneNormal(line, front);
 
             var output = new List<Vector2>(input.Count + 2);
 
@@ -337,10 +349,8 @@ namespace IsometricZoneSorting
             {
                 var curr = input[i];
                 var prev = input[(i - 1 + input.Count) % input.Count];
-                var currSide = Vector2.Dot(curr - a, halfPlaneNormal);
-                var prevSide = Vector2.Dot(prev - a, halfPlaneNormal);
-                var currInside = currSide >= 0f;
-                var prevInside = prevSide >= 0f;
+                var currInside = Vector2.Dot(curr - a, halfPlaneNormal) >= 0f;
+                var prevInside = Vector2.Dot(prev - a, halfPlaneNormal) >= 0f;
 
                 if (currInside)
                 {
@@ -369,40 +379,69 @@ namespace IsometricZoneSorting
         }
 
         /// <summary>
-        /// Returns whether the edge of <paramref name="polygon"/> that lies on
-        /// <paramref name="line"/>'s supporting line overlaps the finite segment
-        /// between the line's two endpoints. Convex polygons share at most one such
-        /// edge with a supporting line.
+        /// Returns the inward normal of the half-plane defined by <paramref name="line"/>'s
+        /// front or back side. The vector's length is |B - A|; callers only need its sign.
         /// </summary>
-        private static bool SharedBoundaryOverlapsSegment(List<Vector2> polygon, ZoneSortingLine line)
+        private static Vector2 HalfPlaneNormal(ZoneSortingLine line, bool front)
         {
+            var dir = line.SortingPointB!.Position - line.SortingPointA!.Position;
+            var leftPerp = new Vector2(-dir.y, dir.x);
+            var normalCross = dir.x * line.FrontNormal.y - dir.y * line.FrontNormal.x;
+            var normal = normalCross >= 0f ? leftPerp : -leftPerp;
+            return front ? normal : -normal;
+        }
+
+        /// <summary>
+        /// Returns whether the (infinite) line through <paramref name="lineIndex"/>,
+        /// restricted to the cell of the arrangement defined by every <em>other</em> bit
+        /// of <paramref name="signature"/>, has any overlap with the finite segment
+        /// between that line's two endpoints. The cell is intersected parametrically in
+        /// <c>t</c>-space (line-k parametric), avoiding polygon drift.
+        /// </summary>
+        private bool SharedBoundaryOverlapsSegment(ZoneSignature signature, int lineIndex)
+        {
+            var line = _lines[lineIndex];
             var a = line.SortingPointA!.Position;
             var b = line.SortingPointB!.Position;
             var dir = b - a;
-            var dirLenSq = Vector2.Dot(dir, dir);
-            if (dirLenSq <= Mathf.Epsilon) return false;
+            if (Vector2.Dot(dir, dir) <= Mathf.Epsilon) return false;
 
-            var lineNormal = new Vector2(-dir.y, dir.x); // length == |dir|
-            var normalThreshold = GeometryEpsilon * Mathf.Sqrt(dirLenSq);
+            var tLo = float.NegativeInfinity;
+            var tHi = float.PositiveInfinity;
 
-            var tLo = float.PositiveInfinity;
-            var tHi = float.NegativeInfinity;
-
-            for (var i = 0; i < polygon.Count; i++)
+            for (var m = 0; m < _lines.Count; m++)
             {
-                var p0 = polygon[i];
-                var p1 = polygon[(i + 1) % polygon.Count];
-                if (Mathf.Abs(Vector2.Dot(p0 - a, lineNormal)) > normalThreshold) continue;
-                if (Mathf.Abs(Vector2.Dot(p1 - a, lineNormal)) > normalThreshold) continue;
+                if (m == lineIndex) continue;
 
-                var t0 = Vector2.Dot(p0 - a, dir) / dirLenSq;
-                var t1 = Vector2.Dot(p1 - a, dir) / dirLenSq;
-                if (t0 > t1) (t0, t1) = (t1, t0);
-                if (t0 < tLo) tLo = t0;
-                if (t1 > tHi) tHi = t1;
+                var other = _lines[m];
+                var hpn = HalfPlaneNormal(other, signature.IsOnFrontSide(m));
+                var origin = other.SortingPointA!.Position;
+
+                // Half-plane constraint dot(p - origin, hpn) >= 0, parametrized
+                // along line k: p = a + t*dir ⇒ c + t*d >= 0 with
+                // c = dot(a - origin, hpn), d = dot(dir, hpn).
+                var c = Vector2.Dot(a - origin, hpn);
+                var d = Vector2.Dot(dir, hpn);
+
+                if (Mathf.Abs(d) < Mathf.Epsilon)
+                {
+                    // Line k is parallel to line m: constraint is t-independent.
+                    if (c < -GeometryEpsilon) return false;
+                    continue;
+                }
+
+                var tConstraint = -c / d;
+                if (d > 0f)
+                {
+                    if (tConstraint > tLo) tLo = tConstraint;
+                }
+                else
+                {
+                    if (tConstraint < tHi) tHi = tConstraint;
+                }
+
+                if (tLo >= tHi) return false;
             }
-
-            if (tLo == float.PositiveInfinity) return false;
 
             var overlapLo = Mathf.Max(tLo, 0f);
             var overlapHi = Mathf.Min(tHi, 1f);
@@ -437,10 +476,93 @@ namespace IsometricZoneSorting
         }
 
         /// <summary>
+        /// Tarjan's strongly-connected-components. Returns an SCC id per node;
+        /// within-SCC nodes share an id, and SCC ids are numbered in reverse
+        /// topological order (sources of the condensation get the highest id).
+        /// </summary>
+        private static int[] ComputeSccs(int nodeCount, Dictionary<int, List<int>> adjacency)
+        {
+            var index = new int[nodeCount];
+            var lowlink = new int[nodeCount];
+            var onStack = new bool[nodeCount];
+            var result = new int[nodeCount];
+            var stack = new Stack<int>();
+            var nextIndex = 1; // 0 = unvisited
+            var nextScc = 0;
+
+            // Iterative DFS to avoid stack overflow on large graphs.
+            var callStack = new Stack<(int node, int childPos)>();
+
+            for (var root = 0; root < nodeCount; root++)
+            {
+                if (index[root] != 0) continue;
+
+                index[root] = nextIndex;
+                lowlink[root] = nextIndex;
+                nextIndex++;
+                stack.Push(root);
+                onStack[root] = true;
+                callStack.Push((root, 0));
+
+                while (callStack.Count > 0)
+                {
+                    var (v, childPos) = callStack.Pop();
+                    var neighbors = adjacency.TryGetValue(v, out var list) ? list : null;
+
+                    var descended = false;
+                    if (neighbors != null)
+                    {
+                        while (childPos < neighbors.Count)
+                        {
+                            var w = neighbors[childPos];
+                            childPos++;
+                            if (index[w] == 0)
+                            {
+                                index[w] = nextIndex;
+                                lowlink[w] = nextIndex;
+                                nextIndex++;
+                                stack.Push(w);
+                                onStack[w] = true;
+                                callStack.Push((v, childPos));
+                                callStack.Push((w, 0));
+                                descended = true;
+                                break;
+                            }
+                            if (onStack[w] && index[w] < lowlink[v]) lowlink[v] = index[w];
+                        }
+                    }
+
+                    if (descended) continue;
+
+                    if (lowlink[v] == index[v])
+                    {
+                        while (true)
+                        {
+                            var popped = stack.Pop();
+                            onStack[popped] = false;
+                            result[popped] = nextScc;
+                            if (popped == v) break;
+                        }
+                        nextScc++;
+                    }
+
+                    if (callStack.Count > 0)
+                    {
+                        var (parent, _) = callStack.Peek();
+                        if (lowlink[v] < lowlink[parent]) lowlink[parent] = lowlink[v];
+                    }
+                }
+            }
+
+            return result;
+        }
+
+        /// <summary>
         /// Assigns a sorting order to each zone using Kahn's algorithm for topological sorting.
         /// Zones at depth D get order <c>D · stride + 1</c>, leaving the stride multiples
         /// (<c>0, stride, 2·stride, …</c>) free as boundary-only orders.
-        /// Detects cycles (contradictory line orientations) and assigns a fallback order.
+        /// The caller is responsible for feeding a DAG; SCC collapse in BuildGraph keeps
+        /// this contract even when the raw cluster graph is cyclic.
         /// </summary>
         /// <param name="zoneCount">The number of zones in the graph.</param>
         /// <param name="adjacency">A dictionary mapping zone indices to lists of incoming zone indices.</param>
@@ -503,7 +625,6 @@ namespace IsometricZoneSorting
                 Debug.LogWarning("[ZoneGraph]: Cycle detected in zone graph. Some zones may have incorrect sorting orders.");
                 for (var zoneIndex = 0; zoneIndex < zoneCount; zoneIndex++)
                 {
-                    // Now we can safely check for -1
                     if (sortingOrders[zoneIndex] == -1)
                     {
                         sortingOrders[zoneIndex] = currentOrder * stride + 1;
