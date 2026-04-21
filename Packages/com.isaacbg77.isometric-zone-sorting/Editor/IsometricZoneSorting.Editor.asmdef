@@ -1,8 +1,8 @@
 {
-    "name": "IsaacBG77.IsometricZoneSorting.Editor",
-    "rootNamespace": "IsometricZoneSorting.Editor",
+    "name": "IsometricZoneSorting.Editor",
+    "rootNamespace": "IsometricZoneSorting",
     "references": [
-        "IsaacBG77.IsometricZoneSorting"
+        "GUID:4556629b5e2ec4046ad6f820157cf27e"
     ],
     "includePlatforms": [
         "Editor"

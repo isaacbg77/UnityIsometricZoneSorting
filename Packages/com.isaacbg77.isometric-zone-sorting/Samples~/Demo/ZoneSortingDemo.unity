@@ -223,7 +223,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: ddb3200ed4c44e889ee8016e5a5f1a07, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: IsaacBG77.IsometricZoneSorting::IsometricZoneSorting.BoundaryZoneSortable
+  m_EditorClassIdentifier: IsometricZoneSorting.Runtime::IsometricZoneSorting.BoundaryZoneSortable
   _line: {fileID: 720035010}
 --- !u!210 &222929284
 SortingGroup:
@@ -708,7 +708,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: ddb3200ed4c44e889ee8016e5a5f1a07, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: IsaacBG77.IsometricZoneSorting::IsometricZoneSorting.BoundaryZoneSortable
+  m_EditorClassIdentifier: IsometricZoneSorting.Runtime::IsometricZoneSorting.BoundaryZoneSortable
   _line: {fileID: 917978020}
 --- !u!210 &842681108
 SortingGroup:
@@ -1318,7 +1318,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: ddb3200ed4c44e889ee8016e5a5f1a07, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: IsaacBG77.IsometricZoneSorting::IsometricZoneSorting.BoundaryZoneSortable
+  m_EditorClassIdentifier: IsometricZoneSorting.Runtime::IsometricZoneSorting.BoundaryZoneSortable
   _line: {fileID: 1703885820}
 --- !u!210 &1622256974
 SortingGroup:
@@ -1437,7 +1437,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: ddb3200ed4c44e889ee8016e5a5f1a07, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: IsaacBG77.IsometricZoneSorting::IsometricZoneSorting.BoundaryZoneSortable
+  m_EditorClassIdentifier: IsometricZoneSorting.Runtime::IsometricZoneSorting.BoundaryZoneSortable
   _line: {fileID: 957362041}
 --- !u!210 &1645117517
 SortingGroup:

@@ -126,7 +126,7 @@ The **Demo Scene** sample (importable via Package Manager) shows all of this wir
 
 - The service updates sorting orders in `LateUpdate` so it sees each sortable's final position for the frame (after animation, physics, and user scripts).
 - Cycles in the zone graph (caused by contradictory `Front Normal` orientations across lines) are detected and logged as a warning; affected zones get a fallback order.
-- Namespace: `IsometricZoneSorting`. Assembly: `IsaacBG77.IsometricZoneSorting`.
+- Namespace: `IsometricZoneSorting`. Assembly: `IsometricZoneSorting.Runtime`.
 
 ## License
 
