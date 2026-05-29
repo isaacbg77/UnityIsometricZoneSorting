@@ -23,5 +23,10 @@ namespace IsometricZoneSorting
         /// </summary>
         public void Register(IStaticZoneSortable sortable);
         public void Unregister(IStaticZoneSortable sortable);
+        
+        /// <summary>
+        /// Rebuilds the zone graph and re-resolves all sortables.
+        /// </summary>
+        public void RebuildZones();
     }
 }
