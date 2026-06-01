@@ -28,26 +28,27 @@ namespace IsometricZoneSorting
         }
 
         /// <summary>
-        /// Returns the index of the line that differs between this and another signature.
+        /// Returns the index of the line that separates this zone from another if they are adjacent.
+        /// Two zones are adjacent if their signatures differ by exactly one line.
         /// </summary>
         /// <param name="other">The other zone signature to compare with.</param>
-        /// <returns>The index of the differing line, or -1 if signatures differ by zero or more than one line.</returns>
-        public int FindSingleDifferingLine(ZoneSignature other)
+        /// <returns>The index of the adjacent line, or -1 if signatures are identical or separated by multiple lines.</returns>
+        public int FindAdjacentLineIndex(ZoneSignature other)
         {
-            var differingIndex = -1;
+            var adjacentIndex = -1;
             var differCount = 0;
 
             for (var index = 0; index < _sides.Length && index < other._sides.Length; index++)
             {
                 if (_sides[index] != other._sides[index])
                 {
-                    differingIndex = index;
+                    adjacentIndex = index;
                     differCount++;
                     if (differCount > 1) return -1;
                 }
             }
 
-            return differCount == 1 ? differingIndex : -1;
+            return differCount == 1 ? adjacentIndex : -1;
         }
 
         /// <summary>

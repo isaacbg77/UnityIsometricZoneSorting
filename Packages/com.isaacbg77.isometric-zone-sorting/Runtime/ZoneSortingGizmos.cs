@@ -34,7 +34,8 @@ namespace IsometricZoneSorting
             if (validLines.Count == 0) return;
 
             var service = GetComponent<ZoneSortingService>();
-            var graph = new ZoneGraph(validLines, service.ZoneOrderStride);
+            var allSortables = FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None).OfType<IZoneSortable>();
+            var graph = new ZoneGraph(validLines, allSortables, service.ZoneOrderStride);
 
             // Draw zone overlays by sampling a grid
             var columnsCount = Mathf.CeilToInt(_gridSize.x / _cellSize);

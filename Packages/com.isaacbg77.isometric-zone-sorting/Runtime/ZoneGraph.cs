@@ -31,7 +31,7 @@ namespace IsometricZoneSorting
         /// </summary>
         public int ZoneOrderStride => _zoneOrderStride;
 
-        public ZoneGraph(IReadOnlyList<ZoneSortingLine> lines, int zoneOrderStride = 10)
+        public ZoneGraph(IReadOnlyList<ZoneSortingLine> lines, IEnumerable<IZoneSortable> allSortables, int zoneOrderStride = 10)
         {
             if (zoneOrderStride < 1) throw new System.ArgumentOutOfRangeException(nameof(zoneOrderStride), "Stride must be at least 1.");
 
@@ -40,10 +40,10 @@ namespace IsometricZoneSorting
             _zonesBySignature = new Dictionary<ZoneSignature, ZoneDefinition>();
             _zoneOrderStride = zoneOrderStride;
 
-            BuildGraph();
+            BuildGraph(allSortables);
         }
 
-        private void BuildGraph()
+        private void BuildGraph(IEnumerable<IZoneSortable> allSortables)
         {
             if (_lines.Count == 0)
             {
@@ -55,8 +55,8 @@ namespace IsometricZoneSorting
                 return;
             }
 
-            var signatures = CalculateAllSignatures();
-            var adjacency = BuildAdjacencyGraph(signatures);
+            var signatures = DiscoverValidSignatures(allSortables);
+            var adjacency = BuildAdjacencyGraph(signatures, _lines);
             var sortedOrders = TopologicalSort(signatures.Count, adjacency, _zoneOrderStride);
 
             for (var zoneIndex = 0; zoneIndex < signatures.Count; zoneIndex++)
@@ -86,26 +86,31 @@ namespace IsometricZoneSorting
             return closestZone.SortingOrderInLayer;
         }
 
-        /// <summary>Calculates all possible signatures for the sorting lines.</summary>
-        /// <returns>A list of ZoneSignature objects, one for each possible combination of sorting lines.</returns>
-        private List<ZoneSignature> CalculateAllSignatures()
+        /// <summary>Discovers valid signatures based on scene sortables and line offsets.</summary>
+        /// <param name="sortables">The collection of all sortables in the scene.</param>
+        /// <returns>A list of unique ZoneSignature objects that actually exist in the scene.</returns>
+        private List<ZoneSignature> DiscoverValidSignatures(IEnumerable<IZoneSortable> sortables)
         {
-            var signatures = new List<ZoneSignature>();
-            var lineCount = _lines.Count;
-            var totalCombinations = 1 << lineCount;
+            var uniqueSignatures = new HashSet<ZoneSignature>();
 
-            for (var combo = 0; combo < totalCombinations; combo++)
+            // Sample from all active objects
+            foreach (var sortable in sortables)
             {
-                var sides = new bool[lineCount];
-                for (var lineIndex = 0; lineIndex < lineCount; lineIndex++)
-                {
-                    // Extract bit at lineIndex position: 1 = front side, 0 = back side
-                    sides[lineIndex] = (combo & (1 << lineIndex)) != 0;
-                }
-                signatures.Add(new ZoneSignature(sides));
+                uniqueSignatures.Add(ComputeSignatureForPosition(sortable.SortPosition));
             }
 
-            return signatures;
+            // Sample offsets from every line to ensure zone coverage
+            const float offset = 0.1f;
+            foreach (var line in _lines)
+            {
+                if (!line.IsValid) continue;
+
+                var midpoint = (line.SortingPointA!.Position + line.SortingPointB!.Position) * 0.5f;
+                uniqueSignatures.Add(ComputeSignatureForPosition(midpoint + line.FrontNormal * offset));
+                uniqueSignatures.Add(ComputeSignatureForPosition(midpoint - line.FrontNormal * offset));
+            }
+
+            return new List<ZoneSignature>(uniqueSignatures);
         }
 
         /// <summary>Computes the signature for a given world position.</summary>
@@ -181,14 +186,18 @@ namespace IsometricZoneSorting
         }
 
         /// <summary>
-        /// Builds a directed acyclic graph (DAG) of zone adjacency.
+        /// Builds a directed acyclic graph (DAG) of zone adjacency using geometric slope rules and front normals.
         /// Two zones are adjacent if their signatures differ by exactly one line.
-        /// The zone on the front side of that differing line gets an incoming edge
-        /// from the zone on the back side, meaning "front zone renders on top of back zone".
+        /// Rendering priority is primarily determined by the <see cref="ZoneSortingLine.FrontNormal"/>
+        /// configured for the separating line. In a typical isometric setup (+X -Y is depth):
+        /// - Vertical lines: Front side (determined by normal) renders on top.
+        /// - Positive slope (ascends right): Typically, Right/Down is in front of Left/Up.
+        /// - Negative slope (descends right): Typically, Right/Up is in front of Left/Down.
         /// </summary>
-        /// <param name="signatures">A list of ZoneSignature objects representing all possible zone signatures.</param>
+        /// <param name="signatures">A list of ZoneSignature objects representing discovered zone signatures.</param>
+        /// <param name="lines">The list of sorting lines.</param>
         /// <returns>A dictionary mapping zone indices to lists of incoming zone indices.</returns>
-        private static Dictionary<int, List<int>> BuildAdjacencyGraph(List<ZoneSignature> signatures)
+        private static Dictionary<int, List<int>> BuildAdjacencyGraph(List<ZoneSignature> signatures, List<ZoneSortingLine> lines)
         {
             var adjacency = new Dictionary<int, List<int>>();
             for (var zoneIndex = 0; zoneIndex < signatures.Count; zoneIndex++)
@@ -200,11 +209,38 @@ namespace IsometricZoneSorting
             {
                 for (var zoneB = zoneA + 1; zoneB < signatures.Count; zoneB++)
                 {
-                    var differingLineIndex = signatures[zoneA].FindSingleDifferingLine(signatures[zoneB]);
-                    if (differingLineIndex < 0) continue;
+                    var adjacentLineIdx = signatures[zoneA].FindAdjacentLineIndex(signatures[zoneB]);
+                    if (adjacentLineIdx < 0) continue;
 
-                    // The zone whose signature is true for this line is "in front"
-                    if (signatures[zoneA].IsOnFrontSide(differingLineIndex))
+                    var line = lines[adjacentLineIdx];
+                    var delta = line.SortingPointB!.Position - line.SortingPointA!.Position;
+
+                    bool aIsFront = signatures[zoneA].IsOnFrontSide(adjacentLineIdx);
+
+                    bool isAInFront;
+                    if (Mathf.Abs(delta.x) < 0.001f) // Vertical Line
+                    {
+                        // Simple front/back logic
+                        isAInFront = aIsFront;
+                    }
+                    else
+                    {
+                        float slope = delta.y / delta.x;
+                        if (slope > 0) // Ascends towards the right
+                        {
+                            // In standard isometric depth, a positive slope line separates "Front-Right" from "Back-Left".
+                            // The FrontNormal should be pointed towards the camera (typically Down/Right).
+                            isAInFront = aIsFront;
+                        }
+                        else // Descends towards the right
+                        {
+                            // In standard isometric depth, a negative slope line separates "Front-Left" from "Back-Right".
+                            // The FrontNormal should be pointed towards the camera (typically Down/Left).
+                            isAInFront = aIsFront;
+                        }
+                    }
+
+                    if (isAInFront)
                     {
                         // zoneA is in front of zoneB → edge from zoneB to zoneA
                         adjacency[zoneB].Add(zoneA);

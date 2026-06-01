@@ -69,7 +69,9 @@ namespace IsometricZoneSorting
                 .Where(line => line.IsValid)
                 .ToList();
 
-            _graph = new ZoneGraph(validLines, _zoneOrderStride);
+            var allSortables = _dynamicSortables.Concat(_staticSortables.Cast<IZoneSortable>());
+
+            _graph = new ZoneGraph(validLines, allSortables, _zoneOrderStride);
 
             var layerId = SortingLayer.NameToID(_zoneSortingLayer);
             foreach (var sortable in _staticSortables)
