@@ -12,7 +12,7 @@ namespace IsometricZoneSorting
     /// </summary>
     public interface IZoneSortable
     {
-        public SortingGroup SortingGroup { get; }
+        public SortingGroup? SortingGroup { get; }
         public Vector2 SortPosition { get; }
 
         /// <summary>

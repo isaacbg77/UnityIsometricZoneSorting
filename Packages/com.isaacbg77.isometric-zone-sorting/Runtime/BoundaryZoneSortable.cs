@@ -24,9 +24,8 @@ namespace IsometricZoneSorting
         private const float BackSideEpsilon = 0.01f;
 
         private IZoneSortingService? _zoneSortingService;
-        private SortingGroup? _sortingGroup;
 
-        public SortingGroup SortingGroup => _sortingGroup ?? throw new NullReferenceException();
+        public SortingGroup? SortingGroup { get; private set; }
 
         public Vector2 SortPosition
         {
@@ -50,15 +49,15 @@ namespace IsometricZoneSorting
             _zoneSortingService = SceneUtils.FindInterfaceOfType<IZoneSortingService>();
             if (_zoneSortingService == null) Debug.LogError($"[{nameof(BoundaryZoneSortable)}]: {nameof(IZoneSortingService)} is null", this);
 
-            _sortingGroup = GetComponent<SortingGroup>();
-            if (_sortingGroup == null) Debug.LogError($"[{nameof(BoundaryZoneSortable)}]: {nameof(_sortingGroup)} is null", this);
+            SortingGroup = GetComponent<SortingGroup>();
+            if (SortingGroup == null) Debug.LogError($"[{nameof(BoundaryZoneSortable)}]: {nameof(SortingGroup)} is null", this);
 
             if (_line == null) Debug.LogError($"[{nameof(BoundaryZoneSortable)}]: {nameof(_line)} is not assigned", this);
         }
 
         private void OnEnable()
         {
-            if (_zoneSortingService == null || _sortingGroup == null) return;
+            if (_zoneSortingService == null || SortingGroup == null) return;
             _zoneSortingService.Register(this);
         }
 

@@ -20,9 +20,9 @@ namespace IsometricZoneSorting
         private int _sortOrderBias;
 
         private IZoneSortingService? _zoneSortingService;
-        private SortingGroup? _sortingGroup;
 
-        public SortingGroup SortingGroup => _sortingGroup ?? throw new NullReferenceException();
+        public SortingGroup? SortingGroup { get; private set; }
+        
         public Vector2 SortPosition => transform.position;
         public int SortOrderBias => _sortOrderBias;
 
@@ -31,13 +31,12 @@ namespace IsometricZoneSorting
             _zoneSortingService = SceneUtils.FindInterfaceOfType<IZoneSortingService>();
             if (_zoneSortingService == null) Debug.LogError($"[{nameof(DynamicZoneSortable)}]: {nameof(IZoneSortingService)} is null", this);
 
-            _sortingGroup = GetComponent<SortingGroup>();
-            if (_sortingGroup == null) Debug.LogError($"[{nameof(DynamicZoneSortable)}]: {nameof(_sortingGroup)} is null", this);
+            SortingGroup = GetComponent<SortingGroup>();
         }
 
         private void OnEnable()
         {
-            if (_zoneSortingService == null || _sortingGroup == null) return;
+            if (_zoneSortingService == null) return;
             _zoneSortingService.Register(this);
         }
 
