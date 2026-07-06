@@ -2,5 +2,5 @@ using UnityEngine;
 
 namespace IsometricZoneSorting
 {
-    public class SortingLayerAttribute : PropertyAttribute { }
+	public class SortingLayerAttribute : PropertyAttribute { }
 }

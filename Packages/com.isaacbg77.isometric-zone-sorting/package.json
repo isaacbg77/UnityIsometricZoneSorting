@@ -21,5 +21,6 @@
       "description": "A scene with sorting lines, sortables, and gizmos showing how the zone graph assigns sorting orders.",
       "path": "Samples~/Demo"
     }
-  ]
+  ],
+  "_fingerprint": "db33d55a5663e84ea2e15b8d1b8a32a518415ad8"
 }

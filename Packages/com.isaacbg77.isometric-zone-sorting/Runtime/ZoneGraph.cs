@@ -1,337 +1,232 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace IsometricZoneSorting
 {
-    /// <summary>
-    /// Computes depth zones from a set of sorting lines and provides spatial queries.
-    /// Each line partitions the scene into a "front" and "back" side.
-    /// Zones are regions that share the same ZoneSignature for all lines.
-    /// A topological sort assigns each zone a sortingOrderInLayer of
-    /// <c>depth · ZoneOrderStride + 1</c>, so that stride multiples
-    /// (<c>0, stride, 2·stride, …</c>) are reserved for zone boundaries and each
-    /// zone spans the range between two adjacent boundaries. Sortables use
-    /// <c>IZoneSortable.SortOrderBias</c> in <c>[0, ZoneOrderStride - 1)</c> to pick
-    /// a slot within their zone; a bias of <c>ZoneOrderStride - 1</c> lands exactly
-    /// on the front boundary (used by <see cref="BoundaryZoneSortable"/>).
-    /// </summary>
-    public class ZoneGraph
-    {
-        private readonly List<ZoneSortingLine> _lines;
-        private readonly List<ZoneDefinition> _zones;
-        private readonly Dictionary<ZoneSignature, ZoneDefinition> _zonesBySignature;
-        private readonly int _zoneOrderStride;
+	/// <summary>
+	/// Computes depth-ordered vertical strips from a set of pivots.
+	/// Each pivot's Y position defines its sorting order relative to every other.
+	/// The V-shaped vector axes extending from each pivot point control the ordering boundary (front vs back)
+	/// for that specific pivot. Each V arm is capped by its length, and horizontal lines extend
+	/// outward from each arm's tip to define per-side elevation boundaries.
+	/// </summary>
+	public class ZoneGraph
+	{
+		private readonly struct PivotNode
+		{
+			public readonly Vector2 Position;
+			public readonly Vector2 RightAxis;
+			public readonly Vector2 LeftAxis;
+			public readonly Vector2 RightNormal;
+			public readonly Vector2 LeftNormal;
+			public readonly float RightVectorLength;
+			public readonly float LeftVectorLength;
+			public readonly float RightTipY;
+			public readonly float LeftTipY;
+			public readonly int BaseSortingOrder;
 
-        public IReadOnlyList<ZoneDefinition> Zones => _zones;
+			public PivotNode(BoundaryZoneSortable zoneSortable, int baseSortingOrder)
+			{
+				Position = zoneSortable.SortPosition;
+				ZoneSortingPivot.SortingAxes axes = zoneSortable.SortingAxes;
+				RightAxis = axes.RightAxis;
+				LeftAxis = axes.LeftAxis;
+				RightVectorLength = axes.RightVectorLength;
+				LeftVectorLength = axes.LeftVectorLength;
 
-        /// <summary>
-        /// Distance between adjacent zone boundaries. Boundaries live at
-        /// <c>0, stride, 2·stride, …</c>; each zone's first sorting layer is one
-        /// above its back boundary (<c>depth · stride + 1</c>).
-        /// </summary>
-        public int ZoneOrderStride => _zoneOrderStride;
+				// Front-facing normals (both point downward)
+				RightNormal = new Vector2(RightAxis.y, -RightAxis.x);
+				LeftNormal = new Vector2(-LeftAxis.y, LeftAxis.x);
 
-        public ZoneGraph(IReadOnlyList<ZoneSortingLine> lines, IEnumerable<IZoneSortable> allSortables, int zoneOrderStride = 10)
-        {
-            if (zoneOrderStride < 1) throw new System.ArgumentOutOfRangeException(nameof(zoneOrderStride), "Stride must be at least 1.");
+				// Y elevation at each arm's tip
+				RightTipY = Position.y + RightAxis.y * RightVectorLength;
+				LeftTipY = Position.y + LeftAxis.y * LeftVectorLength;
 
-            _lines = new List<ZoneSortingLine>(lines);
-            _zones = new List<ZoneDefinition>();
-            _zonesBySignature = new Dictionary<ZoneSignature, ZoneDefinition>();
-            _zoneOrderStride = zoneOrderStride;
+				BaseSortingOrder = baseSortingOrder;
+			}
 
-            BuildGraph(allSortables);
-        }
+			/// <summary>
+			/// Determines if a point is on the front side (below/in-front-of) this pivot,
+			/// using the V shape capped by arm lengths and horizontal lines from each tip.
+			/// Each horizontal line only applies to its respective side (left or right of pivot).
+			/// </summary>
+			public bool IsOnFrontSide(Vector2 point)
+			{
+				Vector2 offset = point - Position;
 
-        private void BuildGraph(IEnumerable<IZoneSortable> allSortables)
-        {
-            if (_lines.Count == 0)
-            {
-                var emptySignature = new ZoneSignature(System.Array.Empty<bool>());
-                var zone = new ZoneDefinition(0, emptySignature);
+				// Check if the point is inside the V region (between both arms, within their lengths).
+				bool frontOfRight = Vector2.Dot(offset, RightNormal) > 0f;
+				bool frontOfLeft = Vector2.Dot(offset, LeftNormal) > 0f;
 
-                _zones.Add(zone);
-                _zonesBySignature[emptySignature] = zone;
-                return;
-            }
+				if (frontOfRight && frontOfLeft)
+				{
+					// Below the cone tip, i.e., in front of both arms.
+					return true;
+				}
+				else if (!frontOfRight && !frontOfLeft)
+				{
+					// Fully inside the cone tip, i.e., behind both arms.
+					return false;
+				}
 
-            var signatures = DiscoverValidSignatures(allSortables);
-            var adjacency = BuildAdjacencyGraph(signatures, _lines);
-            var sortedOrders = TopologicalSort(signatures.Count, adjacency, _zoneOrderStride);
+				// Outside the cone above the cone tip, either to the left or the right side of the pivot.
+				// Check per-side.
+				
+				if (point.x > Position.x)
+				{
+					// Right side: point is in front if it's below the right arm's tip Y.
+					return point.y < RightTipY;
+				}
+				if (point.x < Position.x)
+				{
+					// Left side: point is in front if it's below the left arm's tip Y.
+					return point.y < LeftTipY;
+				}
+				return false;
+			}
+		}
 
-            for (var zoneIndex = 0; zoneIndex < signatures.Count; zoneIndex++)
-            {
-                var zone = new ZoneDefinition(sortedOrders[zoneIndex], signatures[zoneIndex]);
-                _zones.Add(zone);
-                _zonesBySignature[signatures[zoneIndex]] = zone;
-            }
-        }
+		private readonly List<BoundaryZoneSortable> _sortedBoundaries;
+		private readonly List<PivotNode> _sortedPivots;
+		private readonly int _zoneOrderStride;
 
-        /// <summary>Returns the sorting order of the zone that contains the given world position.</summary>
-        /// <param name="worldPosition">The world position to check.</param>
-        /// <returns>The sorting order of the zone containing the position, or 0 if no zones are defined.</returns>
-        public int GetSortingOrderInLayer(Vector2 worldPosition)
-        {
-            if (_zones.Count == 0) return 0;
-            if (_lines.Count == 0) return _zones[0].SortingOrderInLayer;
+		public int PivotCount => _sortedPivots.Count;
 
-            var signature = ComputeSignatureForPosition(worldPosition);
+		public int GetBaseSortingOrder(int pivotIndex)
+		{
+			pivotIndex = Mathf.Clamp(pivotIndex, 0, _sortedPivots.Count - 1);
+			return _sortedPivots[pivotIndex].BaseSortingOrder;
+		}
 
-            if (_zonesBySignature.TryGetValue(signature, out var zone))
-            {
-                return zone.SortingOrderInLayer;
-            }
+		public Vector2 GetPivotPosition(int pivotIndex)
+		{
+			pivotIndex = Mathf.Clamp(pivotIndex, 0, _sortedPivots.Count - 1);
+			return _sortedPivots[pivotIndex].Position;
+		}
 
-            var closestZone = FindClosestMatchingZone(signature);
-            return closestZone.SortingOrderInLayer;
-        }
+		public BoundaryZoneSortable GetSortedBoundary(int pivotIndex)
+		{
+			pivotIndex = Mathf.Clamp(pivotIndex, 0, _sortedPivots.Count - 1);
+			return _sortedBoundaries[pivotIndex];
+		}
 
-        /// <summary>Discovers valid signatures based on scene sortables and line offsets.</summary>
-        /// <param name="sortables">The collection of all sortables in the scene.</param>
-        /// <returns>A list of unique ZoneSignature objects that actually exist in the scene.</returns>
-        private List<ZoneSignature> DiscoverValidSignatures(IEnumerable<IZoneSortable> sortables)
-        {
-            var uniqueSignatures = new HashSet<ZoneSignature>();
+		public ZoneGraph(IReadOnlyList<BoundaryZoneSortable> boundarySortables, int zoneOrderStride = 1)
+		{
+			_zoneOrderStride = Mathf.Max(1, zoneOrderStride);
 
-            // Sample from all active objects
-            foreach (var sortable in sortables)
-            {
-                uniqueSignatures.Add(ComputeSignatureForPosition(sortable.SortPosition));
-            }
+			// Sort pivots by Y descending (higher Y is further back).
+			_sortedBoundaries = boundarySortables.OrderByDescending(sortable => sortable.SortPosition.y).ToList();
+			
+			_sortedPivots = new List<PivotNode>(_sortedBoundaries.Count);
+			for (var i = 0; i < _sortedBoundaries.Count; i++)
+			{
+				// Depth 0 = backmost, Depth i = i-th strip.
+				_sortedPivots.Add(new PivotNode(_sortedBoundaries[i], i * _zoneOrderStride));
+			}
+		}
 
-            // Sample offsets from every line to ensure zone coverage
-            const float offset = 0.1f;
-            foreach (var line in _lines)
-            {
-                if (!line.IsValid) continue;
+		/// <summary>
+		/// Returns the sorting order for the given world position.
+		/// </summary>
+		public int GetSortingOrderInLayer(Vector2 worldPosition, ref int cachedPivotIndex)
+		{
+			if (_sortedPivots.Count == 0) return 0;
+			else if (cachedPivotIndex >= _sortedPivots.Count)
+			{
+				cachedPivotIndex = _sortedPivots.Count - 1;
+			}
 
-                var midpoint = (line.SortingPointA!.Position + line.SortingPointB!.Position) * 0.5f;
-                uniqueSignatures.Add(ComputeSignatureForPosition(midpoint + line.FrontNormal * offset));
-                uniqueSignatures.Add(ComputeSignatureForPosition(midpoint - line.FrontNormal * offset));
-            }
+			int pivotIndex = FindPivotIndexNearCached(worldPosition, cachedPivotIndex);
+			cachedPivotIndex = pivotIndex;
+			
+			if (pivotIndex == _sortedPivots.Count)
+			{
+				// The point is beyond the frontmost pivot and thus guaranteed to be below the pivot's V tip.
+				// Advance by a zone order stride.
+				return _sortedPivots[pivotIndex - 1].BaseSortingOrder + _zoneOrderStride;
+			}
 
-            return new List<ZoneSignature>(uniqueSignatures);
-        }
+			// Y is at or just above the pivot's V tip.
 
-        /// <summary>Computes the signature for a given world position.</summary>
-        /// <param name="worldPosition">The world position to compute the signature for.</param>
-        /// <returns>A ZoneSignature object representing the zone that contains the position.</returns>
-        private ZoneSignature ComputeSignatureForPosition(Vector2 worldPosition)
-        {
-            var sides = new bool[_lines.Count];
+			// Determine if we are in front of or behind the pivot at this index based on the V-axes.
+			bool isInFront = _sortedPivots[pivotIndex].IsOnFrontSide(worldPosition);
 
-            for (var lineIndex = 0; lineIndex < _lines.Count; lineIndex++)
-            {
-                sides[lineIndex] = IsOnFrontSide(worldPosition, _lines[lineIndex]);
-            }
+			if (isInFront)
+			{
+				// The point is below one of the V axis vectors, or below the horizontal line corresponding to the
+				// axis vector's tip.
+				return _sortedPivots[pivotIndex].BaseSortingOrder + _zoneOrderStride;
+			}
+			else
+			{
+				// The point is inside the V shape, or above the horizontal line corresponding to the axis vector's tip.
+				return _sortedPivots[pivotIndex].BaseSortingOrder;
+			}
+		}
 
-            return new ZoneSignature(sides);
-        }
+		public int GetSortingOrderInLayer(Vector2 worldPosition)
+		{
+			int dummyIndex = -1;
+			return GetSortingOrderInLayer(worldPosition, ref dummyIndex);
+		}
 
-        /// <summary>
-        /// Tests whether a point is on the front side of a sorting line.
-        /// The line is treated as infinite (extending beyond both endpoints)
-        /// to ensure clean, continuous zone boundaries without fragmentation.
-        /// Falls back to <c>false</c> (back side) if the line's sorting points
-        /// have been destroyed or cleared since the graph was built; lines are
-        /// validated at construction time, so this only guards against runtime
-        /// teardown.
-        /// </summary>
-        /// <param name="point">The point to test.</param>
-        /// <param name="line">The sorting line to test against.</param>
-        /// <returns>True if the point is on the front side of the line, false otherwise.</returns>
-        private static bool IsOnFrontSide(Vector2 point, ZoneSortingLine line)
-        {
-            var sortingPointA = line.SortingPointA;
-            var sortingPointB = line.SortingPointB;
-            if (sortingPointA == null || sortingPointB == null) return false;
+		private int FindPivotIndexNearCached(Vector2 point, int cachedIndex)
+		{
+			if (cachedIndex < 0)
+			{
+				return FindYIndex(point);
+			}
 
-            var pointA = sortingPointA.Position;
-            var pointB = sortingPointB.Position;
-            var frontNormal = line.FrontNormal;
+			// There is a cached index.
 
-            var lineDirection = pointB - pointA;
-            var pointVector = point - pointA;
+			// Check if the cached index still holds.
+			bool isYAboveCachedIndexPosition = IsPointAboveIndex(point, cachedIndex);
+			bool isYAtCachedIndex = isYAboveCachedIndexPosition && !IsPointAboveIndex(point, cachedIndex - 1);
 
-            // Cross product gives signed area; sign indicates which side of the line
-            var crossProduct = lineDirection.x * pointVector.y - lineDirection.y * pointVector.x;
+			if (isYAtCachedIndex)
+			{
+				return cachedIndex;
+			}
+			if (isYAboveCachedIndexPosition)
+			{
+				return cachedIndex - 1 <= 0 ? 0 : FindYIndex(point.y, 0, cachedIndex - 1);
+			}
+			int indexCount = _sortedPivots.Count;
+			return cachedIndex + 1 >= indexCount ? cachedIndex : FindYIndex(point.y, cachedIndex + 1, indexCount - 1);
+		}
 
-            // Determine which side the front normal is on
-            var normalCross = lineDirection.x * frontNormal.y - lineDirection.y * frontNormal.x;
+		private bool IsPointAboveIndex(Vector2 point, int index)
+		{
+			if (index >= _sortedPivots.Count) return true; // Beyond the front-most.
+			if (index < 0) return false; // Beyond the back-most. 
+			return point.y >= _sortedPivots[index].Position.y;
+		}
 
-            // Point is on the front side if it's on the same side as the front normal
-            return (crossProduct >= 0f) == (normalCross >= 0f);
-        }
+		private int FindYIndex(Vector2 point) => FindYIndex(point.y, 0, _sortedPivots.Count - 1);
 
-        /// <summary>Finds the zone with the most matching lines to the given signature.</summary>
-        /// <param name="signature">The signature to match against.</param>
-        /// <returns>The zone with the most matching lines to the signature.</returns>
-        private ZoneDefinition FindClosestMatchingZone(ZoneSignature signature)
-        {
-            var bestZone = _zones[0];
-            var bestMatchCount = -1;
+		private int FindYIndex(float y, int low, int high)
+		{
+			// Binary search for the index where y would be inserted in the Y-descending list.
 
-            foreach (var zone in _zones)
-            {
-                var matchCount = signature.CountMatches(zone.Signature);
+			// We default the result index as out of bounds, beyond the frontmost sorted pivot.
+			int result = _sortedPivots.Count;
 
-                if (matchCount > bestMatchCount)
-                {
-                    bestMatchCount = matchCount;
-                    bestZone = zone;
-                }
-            }
+			while (low <= high)
+			{
+				int mid = low + (high - low) / 2;
+				if (_sortedPivots[mid].Position.y <= y)
+				{
+					result = mid;
+					high = mid - 1;
+				}
+				else
+				{
+					low = mid + 1;
+				}
+			}
 
-            return bestZone;
-        }
-
-        /// <summary>
-        /// Builds a directed acyclic graph (DAG) of zone adjacency using geometric slope rules and front normals.
-        /// Two zones are adjacent if their signatures differ by exactly one line.
-        /// Rendering priority is primarily determined by the <see cref="ZoneSortingLine.FrontNormal"/>
-        /// configured for the separating line. In a typical isometric setup (+X -Y is depth):
-        /// - Vertical lines: Front side (determined by normal) renders on top.
-        /// - Positive slope (ascends right): Typically, Right/Down is in front of Left/Up.
-        /// - Negative slope (descends right): Typically, Right/Up is in front of Left/Down.
-        /// </summary>
-        /// <param name="signatures">A list of ZoneSignature objects representing discovered zone signatures.</param>
-        /// <param name="lines">The list of sorting lines.</param>
-        /// <returns>A dictionary mapping zone indices to lists of incoming zone indices.</returns>
-        private static Dictionary<int, List<int>> BuildAdjacencyGraph(List<ZoneSignature> signatures, List<ZoneSortingLine> lines)
-        {
-            var adjacency = new Dictionary<int, List<int>>();
-            for (var zoneIndex = 0; zoneIndex < signatures.Count; zoneIndex++)
-            {
-                adjacency[zoneIndex] = new List<int>();
-            }
-
-            for (var zoneA = 0; zoneA < signatures.Count; zoneA++)
-            {
-                for (var zoneB = zoneA + 1; zoneB < signatures.Count; zoneB++)
-                {
-                    var adjacentLineIdx = signatures[zoneA].FindAdjacentLineIndex(signatures[zoneB]);
-                    if (adjacentLineIdx < 0) continue;
-
-                    var line = lines[adjacentLineIdx];
-                    var delta = line.SortingPointB!.Position - line.SortingPointA!.Position;
-
-                    bool aIsFront = signatures[zoneA].IsOnFrontSide(adjacentLineIdx);
-
-                    bool isAInFront;
-                    if (Mathf.Abs(delta.x) < 0.001f) // Vertical Line
-                    {
-                        // Simple front/back logic
-                        isAInFront = aIsFront;
-                    }
-                    else
-                    {
-                        float slope = delta.y / delta.x;
-                        if (slope > 0) // Ascends towards the right
-                        {
-                            // In standard isometric depth, a positive slope line separates "Front-Right" from "Back-Left".
-                            // The FrontNormal should be pointed towards the camera (typically Down/Right).
-                            isAInFront = aIsFront;
-                        }
-                        else // Descends towards the right
-                        {
-                            // In standard isometric depth, a negative slope line separates "Front-Left" from "Back-Right".
-                            // The FrontNormal should be pointed towards the camera (typically Down/Left).
-                            isAInFront = aIsFront;
-                        }
-                    }
-
-                    if (isAInFront)
-                    {
-                        // zoneA is in front of zoneB → edge from zoneB to zoneA
-                        adjacency[zoneB].Add(zoneA);
-                    }
-                    else
-                    {
-                        // zoneB is in front of zoneA → edge from zoneA to zoneB
-                        adjacency[zoneA].Add(zoneB);
-                    }
-                }
-            }
-
-            return adjacency;
-        }
-
-        /// <summary>
-        /// Assigns a sorting order to each zone using Kahn's algorithm for topological sorting.
-        /// Zones at depth D get order <c>D · stride + 1</c>, leaving the stride multiples
-        /// (<c>0, stride, 2·stride, …</c>) free as boundary-only orders.
-        /// Detects cycles (contradictory line orientations) and assigns a fallback order.
-        /// </summary>
-        /// <param name="zoneCount">The number of zones in the graph.</param>
-        /// <param name="adjacency">A dictionary mapping zone indices to lists of incoming zone indices.</param>
-        /// <returns>An array of zone sorting orders, one for each zone.</returns>
-        private static int[] TopologicalSort(int zoneCount, Dictionary<int, List<int>> adjacency, int stride)
-        {
-            var inDegree = new int[zoneCount];
-            foreach (var neighbors in adjacency.Values)
-            {
-                foreach (var neighbor in neighbors)
-                {
-                    inDegree[neighbor]++;
-                }
-            }
-
-            var queue = new Queue<int>();
-            for (var zoneIndex = 0; zoneIndex < zoneCount; zoneIndex++)
-            {
-                if (inDegree[zoneIndex] == 0)
-                {
-                    queue.Enqueue(zoneIndex);
-                }
-            }
-
-            var sortingOrders = new int[zoneCount];
-            for (var i = 0; i < zoneCount; i++)
-            {
-                sortingOrders[i] = -1;
-            }
-
-            var currentOrder = 0;
-            var processedCount = 0;
-
-            while (queue.Count > 0)
-            {
-                var batchSize = queue.Count;
-                for (var batchIndex = 0; batchIndex < batchSize; batchIndex++)
-                {
-                    var zoneIndex = queue.Dequeue();
-                    sortingOrders[zoneIndex] = currentOrder * stride + 1;
-                    processedCount++;
-
-                    if (adjacency.TryGetValue(zoneIndex, out var neighbors))
-                    {
-                        foreach (var neighbor in neighbors)
-                        {
-                            inDegree[neighbor]--;
-                            if (inDegree[neighbor] == 0)
-                            {
-                                queue.Enqueue(neighbor);
-                            }
-                        }
-                    }
-                }
-                currentOrder++;
-            }
-
-            if (processedCount < zoneCount)
-            {
-                Debug.LogWarning("[ZoneGraph]: Cycle detected in zone graph. Some zones may have incorrect sorting orders.");
-                for (var zoneIndex = 0; zoneIndex < zoneCount; zoneIndex++)
-                {
-                    // Now we can safely check for -1
-                    if (sortingOrders[zoneIndex] == -1)
-                    {
-                        sortingOrders[zoneIndex] = currentOrder * stride + 1;
-                    }
-                }
-            }
-
-            return sortingOrders;
-        }
-    }
+			return result;
+		}
+	}
 }

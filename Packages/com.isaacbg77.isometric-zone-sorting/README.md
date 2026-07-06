@@ -2,7 +2,7 @@
 
 A general-purpose depth sorting solution for 2D isometric Unity games.
 
-Drop **sorting lines** into your scene to hand-author which side of each line renders in front of the other. At runtime, any object tagged with `DynamicZoneSortable` (for movers) or `BoundaryZoneSortable` (for walls and other things sitting on a line) gets a correct integer `sortingOrder` every frame — no per-object tweaking, no "sort by Y" hacks, no fighting with `SortingGroup` priorities.
+Drop **sorting pivots** into your scene to hand-author which side of each pivot's axes renders in front of the other. At runtime, any object tagged with `DynamicZoneSortable` (for movers) or `BoundaryZoneSortable` (for walls and other things sitting on a pivot) gets a correct integer `sortingOrder` every frame — no per-object tweaking, no "sort by Y" hacks, no fighting with `SortingGroup` priorities.
 
 ## Install
 
@@ -22,9 +22,10 @@ Or add to `Packages/manifest.json`:
 
 ## How it works
 
-- A **`ZoneSortingLine`** is a line segment (two `SortingPoint` endpoints) plus a `FrontNormal` indicating which side renders on top.
-- `N` lines partition the scene into up to `2^N` **zones**, one per front/back combination.
-- A **`ZoneGraph`** builds a directed acyclic graph from these zones (zones differing by one line have an edge: back → front) and runs Kahn's topological sort to assign each zone an integer depth.
+- A **`ZoneSortingPivot`** defines an isometric origin point and uses a configurable angle to project two axes across the scene.
+- Each axis partitions the scene into a "front" and "back" side relative to its normal.
+- `N` pivots (providing `2*N` axes) partition the scene into zones, one per front/back combination.
+- A **`ZoneGraph`** builds a directed acyclic graph from these zones (zones differing by one axis have an edge: back → front) and runs Kahn's topological sort to assign each zone an integer depth.
 - A **`ZoneSortingService`** registers every sortable in the scene as either an `IDynamicZoneSortable` (re-resolved every `LateUpdate`) or an `IStaticZoneSortable` (stamped once per `RebuildZones()` and skipped during the frame loop). Boundary geometry like walls stays out of the frame loop entirely.
 
 Cycles (contradictory line orientations) are detected and the affected zones fall back to a trailing order with a warning.
@@ -41,23 +42,23 @@ Create an empty GameObject in the scene and add a `ZoneSortingService` component
 - **Rebuild Zones On Awake** (default on) — when enabled, the service builds its zone graph in `Awake` using whatever sorting lines exist in the scene at that point. Turn it off if you load content additively (e.g. per-room) and want to rebuild explicitly; see *Rebuilding zones* below.
 - **Zone Order Stride** (default 10) — distance between adjacent zone boundaries. Boundary orders are reserved at `0, stride, 2·stride, …`; each zone occupies the `stride - 1` integers in between, starting one above its back boundary. Sortables inside a zone set `SortOrderBias` in `[0, stride - 1)` to pick a slot; walls on a sorting line use `stride - 1` to land on the boundary itself. 10 leaves room for several intra-zone slots (character, decal, prop); raise it if you need more, lower it to keep integer orders denser.
 
-### 2. Author sorting lines
+### 2. Author sorting pivots
 
-For each line that should partition depth:
+For each point that should define isometric depth boundaries:
 
-1. Create an empty GameObject with a **`ZoneSortingLine`** component.
-2. Add two child GameObjects with **`SortingPoint`** components and drag them into the line's `Sorting Point A` and `Sorting Point B` fields.
-3. Set **`Front Normal`** to point toward the side you want rendered in front of the other.
-4. *(Optional)* Add **`ZoneSortingLineGizmos`** on the line for Scene-view visualization, or **`ZoneSortingGizmos`** on the service GameObject to preview the resulting zones as a colored grid.
+1. Create an empty GameObject with a **`ZoneSortingPivot`** component.
+2. Set the **`Isometric Angle`** in the inspector (default is 26.565°).
+3. Move the pivot to the corner or origin of the isometric plane.
+4. *(Optional)* Add **`ZoneSortingGizmos`** on the service GameObject to preview the resulting zones as a colored grid.
 
-Lines are treated as infinite (extended beyond their endpoints), so you don't need to cover the full extent of the scene — just place the endpoints where the boundary *changes direction*.
+Pivots are treated as infinite virtual lines fanning out from the origin, so you don't need to cover the full extent of the scene.
 
 ### 3. Tag your sortable objects
 
 Two stock MonoBehaviours cover the common cases:
 
 - **`DynamicZoneSortable`** (`IDynamicZoneSortable`) for anything that moves (characters, props, items). `SortPosition` tracks `transform.position` each frame and the service re-resolves the order every `LateUpdate`.
-- **`BoundaryZoneSortable`** (`IStaticZoneSortable`) for things that sit *on* a sorting line (walls, fences, doors, railings). Assign the line in the inspector; the component derives `SortPosition` from the line's midpoint (offset onto the back side) and auto-sets `SortOrderBias` to `stride - 1` so the wall lands exactly on the boundary — strictly above every mover in the back zone and strictly below every mover in the front zone. The service stamps the order once at registration and skips it during the frame loop.
+- **`BoundaryZoneSortable`** (`IStaticZoneSortable`) for things that sit *on* a sorting pivot (walls, fences, doors, railings). Assign the pivot in the inspector; the component derives `SortPosition` from the pivot's position (offset onto the back side) and auto-sets `SortOrderBias` to `stride - 1` so the wall lands exactly on the boundary — strictly above every mover in the back zone and strictly below every mover in the front zone. The service stamps the order once at registration and skips it during the frame loop.
 
 Both components require a `SortingGroup` (auto-enforced).
 
@@ -85,7 +86,7 @@ public class FootAnchoredSortable : MonoBehaviour, IDynamicZoneSortable
 
 ### Why boundary sortables need a bias
 
-A wall that sits on a sorting line has to render strictly between the line's back zone and front zone — otherwise a mover in the back zone ends up tied with the wall. With a stride of 10, zone boundaries occupy the multiples `0, 10, 20, …` and zones occupy the integers in between: the back-most zone uses `1–9`, the next zone `11–19`, and so on. `IZoneSortable.SortOrderBias` is an offset added to the zone's first sorting layer.
+A wall that sits on a sorting pivot has to render strictly between the pivot's back zone and front zone — otherwise a mover in the back zone ends up tied with the wall. With a stride of 10, zone boundaries occupy the multiples `0, 10, 20, …` and zones occupy the integers in between: the back-most zone uses `1–9`, the next zone `11–19`, and so on. `IZoneSortable.SortOrderBias` is an offset added to the zone's first sorting layer.
 
 `BoundaryZoneSortable` applies this automatically: it reads the service's stride and sets its bias to `stride - 1`, landing it on the boundary (order `10`, `20`, …). Movers in the back zone sit at `1–8`, below it; movers in the front zone sit at `11–18`, above it. Biases on a sortable that should stay *inside* a zone must be in `[0, stride - 1)`; the `stride - 1` slot is the front boundary.
 
@@ -114,13 +115,13 @@ The **Demo Scene** sample (importable via Package Manager) shows all of this wir
 | `IZoneSortable` | Base contract: exposes a `SortingGroup`, a `SortPosition`, and an optional `SortOrderBias` |
 | `IDynamicZoneSortable` / `IStaticZoneSortable` | Marker interfaces extending `IZoneSortable`. Dynamic = re-resolved every frame; static = stamped once per graph build |
 | `DynamicZoneSortable` | Default implementation for movers; `SortPosition` = `transform.position` |
-| `BoundaryZoneSortable` | Implementation for walls/fences/doors; `SortPosition` derived from a `ZoneSortingLine` |
+| `BoundaryZoneSortable` | Implementation for walls/fences/doors; `SortPosition` derived from a `ZoneSortingPivot` |
 | `IZoneSortingService` / `ZoneSortingService` | Registers sortables, walks dynamics each frame, and stamps statics on rebuild |
-| `ZoneSortingLine` / `SortingPoint` | Authoring components that define zone boundaries |
+| `ZoneSortingPivot` | Authoring component that defines isometric zone boundaries |
 | `ZoneGraph` | Computes zones, builds the DAG, runs the topological sort |
 | `ZoneSignature` / `ZoneDefinition` | Immutable zone identity and resolved order |
 | `[SortingLayer]` attribute | Marks a string field to render as a sorting-layer dropdown in the inspector |
-| `ZoneSortingGizmos` / `ZoneSortingLineGizmos` | Editor visualization |
+| `ZoneSortingGizmos` / `ZoneSortingPivotGizmos` | Editor visualization |
 
 ## Notes
 

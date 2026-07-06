@@ -4,66 +4,86 @@ using UnityEngine.Rendering;
 
 namespace IsometricZoneSorting
 {
-    /// <summary>
-    /// <see cref="IStaticZoneSortable"/> for static objects that sit on a sorting line
-    /// (walls, fences, doors, railings). <see cref="SortPosition"/> is derived from the
-    /// referenced <see cref="ZoneSortingLine"/> and nudged a hair onto its back side,
-    /// so the sortable resolves into the zone just behind the line.
-    /// <see cref="SortOrderBias"/> is <c>stride - 1</c>, which lands the sortable
-    /// exactly on the zone's front boundary — strictly above the back zone and
-    /// strictly below the front zone, so it never ties with movers on either side.
-    /// The service stamps the order once at registration and on every
-    /// <c>RebuildZones()</c>, skipping it during the frame loop.
-    /// </summary>
-    [RequireComponent(typeof(SortingGroup))]
-    public class BoundaryZoneSortable : MonoBehaviour, IStaticZoneSortable
-    {
-        [SerializeField, Tooltip("The sorting line this object sits on. SortPosition is the midpoint of the line's two SortingPoints, offset slightly onto its back side.")]
-        private ZoneSortingLine? _line;
+	/// <summary>
+	/// <see cref="IStaticZoneSortable"/> for static objects that sit on a sorting pivot
+	/// (walls, fences, doors, railings). <see cref="SortPosition"/> is derived from the
+	/// referenced <see cref="ZoneSortingPivot"/>.
+	/// </summary>
+	public class BoundaryZoneSortable : MonoBehaviour, IBoundaryZoneSortable
+	{
+		[SerializeField, Tooltip("The sorting pivot this object sits on. SortPosition is the pivot's position, offset slightly away from its front normals.")]
+		private ZoneSortingPivot? _pivot;
+		private ZoneSortingPivot? Pivot
+		{
+			get
+			{
+				if (_pivot == null) _pivot = GetComponentInChildren<ZoneSortingPivot>();
+				return _pivot;
+			}
+		}
 
-        private const float BackSideEpsilon = 0.01f;
+		private SortingGroup? _sortingGroup;
+		public SortingGroup? SortingGroup
+		{
+			get
+			{
+				if (_sortingGroup == null) _sortingGroup = GetComponent<SortingGroup>();
+				return _sortingGroup;
+			}
+		}
 
-        private IZoneSortingService? _zoneSortingService;
+		private Renderer[]? _renderers;
+		public Renderer[]? Renderers
+		{
+			get
+			{
+				_renderers ??= GetComponentsInChildren<Renderer>();
+				return _renderers;
+			}
+		}
 
-        public SortingGroup? SortingGroup { get; private set; }
+		public Vector2 SortPosition
+		{
+			get
+			{
+				if (Pivot == null) return transform.position;
+				return Pivot.Position;
+			}
+		}
 
-        public Vector2 SortPosition
-        {
-            get
-            {
-                if (_line == null) return transform.position;
+		public event Action<IZoneSortable>? Destroyed;
 
-                var pointA = _line.SortingPointA;
-                var pointB = _line.SortingPointB;
-                if (pointA == null || pointB == null) return transform.position;
+		public ZoneSortingPivot.SortingAxes SortingAxes => Pivot == null ? ZoneSortingPivot.SortingAxes.Default() : Pivot.GetSortingAxes();
+		
+		private void Awake()
+		{
+			if (_pivot == null) Debug.LogError($"[{nameof(BoundaryZoneSortable)}]: {nameof(_pivot)} is not assigned", this);
+			_sortingGroup = GetComponent<SortingGroup>();
+			_renderers = GetComponentsInChildren<Renderer>();
+		}
 
-                var midpoint = (pointA.Position + pointB.Position) * 0.5f;
-                return midpoint - _line.FrontNormal * BackSideEpsilon;
-            }
-        }
+		private void OnDestroy()
+		{
+			Destroyed?.Invoke(this);
+			Destroyed = null;
+		}
 
-        public int SortOrderBias => (_zoneSortingService?.ZoneOrderStride ?? 1) - 1;
+#if UNITY_EDITOR
+		private void Reset()
+		{
+			// Avoid creating a duplicate if one already exists.
+			_pivot = GetComponentInChildren<ZoneSortingPivot>();
+			if (_pivot == null)
+			{
+				var pivot = new GameObject("SortingPivot");
+				pivot.transform.SetParent(transform, worldPositionStays: false);
+				_pivot = pivot.AddComponent<ZoneSortingPivot>();
 
-        private void Awake()
-        {
-            _zoneSortingService = SceneUtils.FindInterfaceOfType<IZoneSortingService>();
-            if (_zoneSortingService == null) Debug.LogError($"[{nameof(BoundaryZoneSortable)}]: {nameof(IZoneSortingService)} is null", this);
-
-            SortingGroup = GetComponent<SortingGroup>();
-            if (SortingGroup == null) Debug.LogError($"[{nameof(BoundaryZoneSortable)}]: {nameof(SortingGroup)} is null", this);
-
-            if (_line == null) Debug.LogError($"[{nameof(BoundaryZoneSortable)}]: {nameof(_line)} is not assigned", this);
-        }
-
-        private void OnEnable()
-        {
-            if (_zoneSortingService == null || SortingGroup == null) return;
-            _zoneSortingService.Register(this);
-        }
-
-        private void OnDisable()
-        {
-            _zoneSortingService?.Unregister(this);
-        }
-    }
+				// Mark the new child as part of the undo history so it can be undone
+				UnityEditor.Undo.RegisterCreatedObjectUndo(pivot, "Add SortingPivot");
+				UnityEditor.EditorUtility.SetDirty(this);
+			}
+		}
+#endif
+	}
 }

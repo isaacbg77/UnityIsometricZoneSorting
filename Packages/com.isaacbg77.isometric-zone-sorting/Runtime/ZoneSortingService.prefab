@@ -10,7 +10,6 @@ GameObject:
   m_Component:
   - component: {fileID: 440830224287389734}
   - component: {fileID: 7774930773260551401}
-  - component: {fileID: 4232769724292335674}
   m_Layer: 0
   m_Name: ZoneSortingService
   m_TagString: Untagged
@@ -46,20 +45,4 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _zoneSortingLayer: Default
-  _zoneOrderStride: 10
   _rebuildZonesOnAwake: 1
---- !u!114 &4232769724292335674
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4831947942245634364}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 922af380e25fa4c6f84775be18e9c341, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  _gridOrigin: {x: -20, y: -20}
-  _gridSize: {x: 40, y: 40}
-  _cellSize: 0.4

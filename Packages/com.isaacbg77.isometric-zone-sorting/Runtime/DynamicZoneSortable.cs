@@ -4,45 +4,57 @@ using UnityEngine.Rendering;
 
 namespace IsometricZoneSorting
 {
-    /// <summary>
-    /// Default <see cref="IDynamicZoneSortable"/> for things that move (characters, props, items).
-    /// <see cref="SortPosition"/> tracks <c>transform.position</c> each frame and the
-    /// service re-resolves the sorting order every <c>LateUpdate</c>.
-    /// <see cref="SortOrderBias"/> defaults to <c>0</c> (the first sorting layer in the
-    /// sortable's zone) and can be raised to stack above other movers in the same zone.
-    /// For static objects sitting on a sorting line (walls, fences, doors) use
-    /// <see cref="BoundaryZoneSortable"/> instead.
-    /// </summary>
-    [RequireComponent(typeof(SortingGroup))]
-    public class DynamicZoneSortable : MonoBehaviour, IDynamicZoneSortable
-    {
-        [SerializeField, Min(0), Tooltip("Offset added to the zone's first sorting layer. 0 (default) puts this sortable on the first layer in its zone; raise it to stack above other movers within the same zone. Must be less than stride-1 to stay inside the zone; stride-1 lands on the zone's front boundary.")]
-        private int _sortOrderBias;
+	/// <summary>
+	/// Default <see cref="IDynamicZoneSortable"/> for things that move (e.g. characters).
+	/// <see cref="SortPosition"/> tracks <c>transform.position</c> each frame and the
+	/// service re-resolves the sorting order every <c>LateUpdate</c>.
+	/// </summary>
+	[RequireComponent(typeof(SortingGroup))]
+	public class DynamicZoneSortable : MonoBehaviour, IDynamicZoneSortable
+	{
+		private SortingGroup? _sortingGroup;
+		public SortingGroup? SortingGroup
+		{
+			get
+			{
+				if (_sortingGroup == null) _sortingGroup = GetComponent<SortingGroup>();
+				return _sortingGroup;
+			}
+		}
+		
+		private Renderer[]? _renderers;
+		public Renderer[]? Renderers
+		{
+			get
+			{
+				_renderers ??= GetComponentsInChildren<Renderer>();
+				return _renderers;
+			}
+		}
+		
+		public Vector2 SortPosition => transform.position;
+		
+		public event Action<IZoneSortable>? Destroyed;
 
-        private IZoneSortingService? _zoneSortingService;
+		public int CachedPivotIndex { get; set; } = -1;
+		
+		private IZoneSortingService? _zoneSortingService;
+		
 
-        public SortingGroup? SortingGroup { get; private set; }
-        
-        public Vector2 SortPosition => transform.position;
-        public int SortOrderBias => _sortOrderBias;
-
-        private void Awake()
-        {
-            _zoneSortingService = SceneUtils.FindInterfaceOfType<IZoneSortingService>();
-            if (_zoneSortingService == null) Debug.LogError($"[{nameof(DynamicZoneSortable)}]: {nameof(IZoneSortingService)} is null", this);
-
-            SortingGroup = GetComponent<SortingGroup>();
-        }
-
-        private void OnEnable()
-        {
-            if (_zoneSortingService == null) return;
-            _zoneSortingService.Register(this);
-        }
-
-        private void OnDisable()
-        {
-            _zoneSortingService?.Unregister(this);
-        }
-    }
+		private void Awake()
+		{
+			_zoneSortingService = SceneUtils.FindInterfaceOfType<IZoneSortingService>();
+			if (_zoneSortingService == null) Debug.LogError($"[{nameof(DynamicZoneSortable)}]: {nameof(IZoneSortingService)} is null", this);
+			if (_zoneSortingService != null) _zoneSortingService.Register(this);
+			_sortingGroup = GetComponent<SortingGroup>();
+			_renderers = GetComponentsInChildren<Renderer>();
+		}
+		
+		private void OnDestroy()
+		{
+			if (_zoneSortingService != null) _zoneSortingService.Unregister(this);
+			Destroyed?.Invoke(this);
+			Destroyed = null;
+		}
+	}
 }
