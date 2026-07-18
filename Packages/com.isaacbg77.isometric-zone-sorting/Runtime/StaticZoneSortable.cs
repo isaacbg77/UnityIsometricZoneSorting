@@ -56,7 +56,7 @@ namespace IsometricZoneSorting
 			Tilemap? tilemap = GetComponent<Tilemap>();
 			if (tilemap != null)
 			{
-				_sortPosition = CalculateTilemapSortPosition(tilemap);
+				_sortPosition = ZoneSortingUtil.CalculateTilemapSortPosition(tilemap);
 			}
 		}
 		
@@ -66,46 +66,19 @@ namespace IsometricZoneSorting
 			Destroyed = null;
 		}
 
-		private Vector2 CalculateTilemapSortPosition(Tilemap tilemap)
-		{
-			if (tilemap == null) return default;
- 			Vector3 totalPosition = Vector3.zero;
-			int tileCount = 0;
-
-			// Get the painted boundaries of the tilemap in cell coordinates.
-			tilemap.CompressBounds();
-			BoundsInt bounds = tilemap.cellBounds;
-
-			// Iterate through every cell within the painted bounds, recording painted tile positions.
-			foreach (Vector3Int cellPosition in bounds.allPositionsWithin)
-			{
-				if (!tilemap.HasTile(cellPosition)) continue;
-
-				// Record the painted tile's position, adjusted by its sprite's pivot offset.
-				Vector3 cellCenter = tilemap.GetCellCenterWorld(cellPosition);
-				Matrix4x4 tileTransform = tilemap.GetTransformMatrix(cellPosition);
-				Vector3 tileOffset = tileTransform.GetPosition();
-				totalPosition += cellCenter + tileOffset;
-				tileCount++;
-			}
-
-			// Calculate the average position of recorded tiles, or the tilemap's position if empty.
-			return tileCount > 0 ? totalPosition / tileCount : tilemap.transform.position;
-		}
-
 #if UNITY_EDITOR
 		private void OnDrawGizmosSelected()
 		{
 			Tilemap? tilemap = GetComponent<Tilemap>();
 			if (tilemap == null) return;
 
-			_sortPosition = CalculateTilemapSortPosition(tilemap);
+			_sortPosition = ZoneSortingUtil.CalculateTilemapSortPosition(tilemap);
 
 			Vector2 avgPosition = _sortPosition;
 			Gizmos.color = Color.yellow;
 			Gizmos.DrawSphere(avgPosition, 0.2f);
 			Gizmos.DrawWireSphere(avgPosition, 0.4f);
 		}
-#endif
+#endif // UNITY_EDITOR
 	}
 }

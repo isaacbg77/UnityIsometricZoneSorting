@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 using UnityEngine.Rendering;
+using UnityEngine.Tilemaps;
 
 namespace IsometricZoneSorting
 {
@@ -57,9 +58,28 @@ namespace IsometricZoneSorting
 		
 		private void Awake()
 		{
-			if (_pivot == null) Debug.LogError($"[{nameof(BoundaryZoneSortable)}]: {nameof(_pivot)} is not assigned", this);
 			_sortingGroup = GetComponent<SortingGroup>();
 			_renderers = GetComponentsInChildren<Renderer>();
+
+			if (Pivot != null)
+			{
+				// Record our sort position prior to any shifts in the tilemap sort pivots. 
+				Vector3 sortPosition = SortPosition;
+				foreach (Renderer r in _renderers)
+				{
+					var tilemapRenderer = r as TilemapRenderer;
+					if (r == null || tilemapRenderer == null) continue;
+					var tilemap = tilemapRenderer.GetComponent<Tilemap>();
+					ZoneSortingUtil.SetTilemapSortPivot(tilemap, SortPosition);
+				}
+				
+				// Restore the original sort position, in the event it was changed.
+				Pivot.transform.position = sortPosition;
+			}
+			else
+			{
+				Debug.LogError($"[{nameof(BoundaryZoneSortable)}]: {nameof(_pivot)} is not assigned", this);
+			}
 		}
 
 		private void OnDestroy()
@@ -84,6 +104,19 @@ namespace IsometricZoneSorting
 				UnityEditor.EditorUtility.SetDirty(this);
 			}
 		}
-#endif
+		
+		private void OnDrawGizmosSelected()
+		{
+			// Draw each tilemap's transparency sort point — the renderer bounds center, which
+			// ZoneSortingUtil.SetTilemapSortPivot aligns to the sorting pivot at runtime.
+			Gizmos.color = Color.yellow;
+			foreach (TilemapRenderer tilemapRenderer in GetComponentsInChildren<TilemapRenderer>())
+			{
+				Vector2 sortPoint = tilemapRenderer.bounds.center;
+				Gizmos.DrawSphere(sortPoint, 0.2f);
+				Gizmos.DrawWireSphere(sortPoint, 0.4f);
+			}
+		}
+#endif // UNITY_EDITOR
 	}
 }
